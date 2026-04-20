@@ -154,6 +154,25 @@ CmdManager/
 - `variable` 片段当前用于建模与编辑，运行时不会弹窗输入参数，使用的是已保存值。
 - UI 运行命令默认走 cmd；底层已预留 PowerShell 运行方法，可后续接入界面选项。
 
+## 打包为 EXE
+
+在项目根目录执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+脚本会自动完成以下步骤：
+
+1. 安装 `requirements.txt` 里的依赖。
+2. 自动安装 `pyinstaller`。
+3. 生成单文件可执行程序到 `build/CmdManager.exe`。
+
+说明：
+
+- 双击 `build/CmdManager.exe` 可直接运行。
+- 运行时数据文件会自动写入 `build/data/commands.json`。
+
 ## 相关文档
 
 - 架构设计：`Docs/cli-generator-architecture.md`

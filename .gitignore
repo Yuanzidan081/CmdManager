@@ -1,1 +1,4 @@
 __pycache__
+.pyinstaller
+build
+commands.json

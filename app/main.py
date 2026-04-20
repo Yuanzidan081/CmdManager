@@ -11,6 +11,20 @@ from Services.CommandService import CommandService
 from UI.MainWindow import MainWindow
 
 
+def getAppRootPath() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+def getResourceRootPath() -> Path:
+    if getattr(sys, "frozen", False):
+        meipassPath = getattr(sys, "_MEIPASS", "")
+        if meipassPath:
+            return Path(meipassPath)
+    return getAppRootPath()
+
+
 def loadTheme(themePath: str) -> str:
     path = Path(themePath)
     if not path.exists():
@@ -24,9 +38,11 @@ def loadTheme(themePath: str) -> str:
 def main() -> int:
     app = QApplication(sys.argv)
 
-    rootPath = Path(__file__).resolve().parents[1]
-    dataFilePath = rootPath / "data" / "commands.json"
-    themePath = rootPath / "app" / "UI" / "styles" / "theme.qss"
+    appRootPath = getAppRootPath()
+    resourceRootPath = getResourceRootPath()
+
+    dataFilePath = appRootPath / "data" / "commands.json"
+    themePath = resourceRootPath / "app" / "UI" / "styles" / "theme.qss"
 
     jsonBase = JsonBase()
     terminalBase = TerminalBase()
