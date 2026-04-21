@@ -2,23 +2,38 @@
 
 CmdManager 是一个基于 PyQt6 的桌面命令管理工具，用于把常用命令按分类集中管理，并通过图形界面快速运行。图形界面参考了CC-Switch界面的布局。
 
-## 功能概览
+## 核心能力
 
 - 分类管理
-  - 支持新增、重命名、删除分类。
+  - 支持新增、重命名、删除、排序分类。
   - 分类以 Tab 形式展示。
 - 命令管理
-  - 每个分类下可新增、编辑、删除命令。
-  - 命令使用卡片展示：名称、描述、预览、运行/编辑/删除按钮。
-- 命令片段编辑
-  - 命令由多个片段组成，支持 `literal` 与 `variable` 两种类型。
-  - 支持片段新增、删除、上移、下移。
+  - 每个分类下可新增、编辑、删除、排序命令。
+  - 命令卡片展示名称、描述和预览命令，并提供运行、编辑、删除按钮。
+- 模板变量驱动
+  - 命令由 template 定义，使用 `%变量名%` 作为占位符。
+  - 编辑器会自动解析模板变量并生成输入项，不再手动维护分段类型。
 - 命令预览与执行
-  - 编辑时实时预览最终命令。
-  - 点击运行后，在新开的 cmd 窗口执行命令。
+  - 预览区实时展示替换后的命令。
+  - 点击运行后在新的终端窗口执行最终命令。
 - 数据持久化
   - 数据保存到 `data/commands.json`。
-  - 支持手动保存；关闭窗口时若有未保存变更会自动尝试保存。
+  - 启动时自动加载；通过“保存”按钮覆盖写入。
+  - 
+## 分层架构
+
+- UI 层
+  - MainWindow、CategoryWidget、CommandCardWidget、CommandEditorWidget、SegmentWidget。
+- 服务层
+  - CategoryService：分类新增、重命名、删除、排序。
+  - CommandService：命令增删改、模板解析、预览构建、运行、保存、加载。
+- 领域模型层
+  - CategoryModel：id、name、order。
+  - CommandModel：id、categoryId、name、description、template、variables、order。
+  - SegmentModel：key、value。
+- 基础设施层
+  - JsonBase：JSON 文件创建、读取、写入。
+  - TerminalBase：cmd / PowerShell 启动与运行。
 
 ## 环境要求
 
@@ -64,16 +79,25 @@ pip install -r requirements.txt
 python app/main.py
 ```
 
-程序启动后会自动加载 `data/commands.json`。如果当前数据为空，会自动创建一个默认分类 `常用`。
+程序启动后会自动加载 `data/commands.json`。
+若数据文件不存在，会自动创建空结构：
+
+```json
+{
+  "categories": [],
+  "commands": []
+}
+```
 
 ## 快速使用
 
 1. 在顶部输入框输入分类名，点击“新增分类”。
 2. 进入分类后点击“新增命令”。
-3. 在编辑页填写命令名称、描述，并添加命令片段。
-4. 点击“保存”返回列表页。
-5. 在命令卡片点击“运行”，将在新 cmd 窗口执行。
+3. 在编辑页填写 name、description、template（例如：`E:\unity\build.bat %appName% %version%`）。
+4. 根据自动生成的变量输入项填写 value。
+5. 点击“保存”返回列表页。
 6. 点击顶部“保存”将当前状态写入 `data/commands.json`。
+7. 在命令卡片点击“运行”，将在新终端窗口执行最终命令。
 
 ## 项目结构
 
@@ -132,14 +156,15 @@ CmdManager/
       "categoryId": "category-id",
       "name": "命令名",
       "description": "命令描述",
-      "segments": [
+      "template": "E:\\unity\\build.bat %appName% %version%",
+      "variables": [
         {
-          "type": "literal",
-          "value": "echo"
+          "key": "appName",
+          "value": "DemoGame"
         },
         {
-          "type": "variable",
-          "value": "hello"
+          "key": "version",
+          "value": "1.2.3"
         }
       ],
       "order": 0
@@ -148,10 +173,22 @@ CmdManager/
 }
 ```
 
+## 命令拼接与转义
+
+- CommandService 负责模板变量替换和预览拼接，UI 不直接拼接命令字符串。
+- Windows 下的 quoteIfNeed 规则：
+  - 无空格且无双引号：原样返回。
+  - 含空格：自动加双引号。
+  - 含双引号：先转义再包裹双引号。
+
+Windows 终端运行策略：
+
+- cmd：`start cmd /k "{command}"`
+- PowerShell：`start powershell -NoExit -Command "{command}"`
+
 ## 当前限制
 
 - “导入 / 导出 / 设置”按钮目前为占位提示，尚未实现具体功能。
-- `variable` 片段当前用于建模与编辑，运行时不会弹窗输入参数，使用的是已保存值。
 - UI 运行命令默认走 cmd；底层已预留 PowerShell 运行方法，可后续接入界面选项。
 
 ## 打包为 EXE
