@@ -113,6 +113,7 @@ class MainWindow(QMainWindow):
 
         self.commandEditorWidget = CommandEditorWidget()
         self.commandEditorWidget.setPreviewBuilder(self.commandService.buildCommandPreview)
+        self.commandEditorWidget.setTemplateParser(self.commandService.parseTemplateVariables)
 
         self.pageStack.addWidget(self.commandListPage)
         self.pageStack.addWidget(self.commandEditorWidget)
@@ -262,14 +263,27 @@ class MainWindow(QMainWindow):
         categoryId: str,
         name: str,
         description: str,
-        segmentDataList: list,
+        template: str,
+        variableDataList: list,
     ) -> None:
-        segmentList = [SegmentModel.fromDict(item) for item in segmentDataList]
+        variableList = [SegmentModel.fromDict(item) for item in variableDataList]
         try:
             if commandId:
-                self.commandService.updateCommand(commandId, name, description, segmentList)
+                self.commandService.updateCommand(
+                    commandId,
+                    name,
+                    description,
+                    template,
+                    variableList,
+                )
             else:
-                self.commandService.addCommand(categoryId, name, description, segmentList)
+                self.commandService.addCommand(
+                    categoryId,
+                    name,
+                    description,
+                    template,
+                    variableList,
+                )
             self.refreshCategoryTabs()
             self.pageStack.setCurrentWidget(self.commandListPage)
             self.appState.editingCommandId = None

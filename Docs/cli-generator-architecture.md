@@ -5,7 +5,7 @@
 本工具是一个桌面端命令行管理器，使用 PyQt 构建界面，支持以下核心能力：
 
 1. 类似 CC 风格的卡片化管理界面。
-2. 动态配置命令模板，模板由“固定片段 + 可变参数片段”组成。
+2. 动态配置命令模板，模板由“完整命令文本 + 占位符变量（%name%）”组成。
 3. 通过多 Tab 对命令分类，分类可动态新增、编辑、删除。
 4. 点击运行后在新命令行窗口执行最终命令。
 5. 所有分类和命令模板可持久化保存到 JSON。
@@ -27,15 +27,16 @@
 - 其他：命令编辑界面。参考![](./images/widget-commandedit.png)
 
 
-### 2.2 动态参数模型（需求 2）
+### 2.2 模板变量模型（需求 2）
 
-- 命令模板由多个片段 Segment 按顺序组成。
-- Segment 支持两类：
-  - literal：固定文本（例如 echo）。
-  - variable：运行前由用户输入的变量（例如 hello）。
-- 示例：echo hello
-  - Segment[0] = literal("echo")
-  - Segment[1] = variable(key="message", default="hello")
+- 命令由一条模板字符串定义，模板中使用 `%变量名%` 表示可变字段。
+- 用户先输入模板，再由系统自动解析模板里的变量名。
+- 解析出的每个变量都会生成一个输入项（label + lineEdit）。
+- 预览区实时将 `%变量名%` 替换为当前输入值。
+- 示例：
+  - 模板：`E:\unity\build.bat %appName% %version%`
+  - 输入：`appName=DemoGame`，`version=1.2.3`
+  - 预览：`E:\unity\build.bat DemoGame 1.2.3`
 
 ### 2.3 多 Tab 分类（需求 3）
 
@@ -60,7 +61,7 @@
 
 1. UI 层（PyQt Widgets）
 2. 应用服务层（用例编排、状态同步）
-3. 领域模型层（Category / CommandTemplate / Segment）
+3. 领域模型层（Category / CommandTemplate / TemplateVariable）
 4. 基础设施层（JSON 仓储、终端启动器）
 
 ### 3.1 UI 层
@@ -72,8 +73,8 @@
 - MainWindow：主窗口，承载 Tab 与命令卡片列表。
 - CategoryWidget：分类管理(tab形式)，各个分类下可以包含多个命令卡片，可新增、删除、重命名。
 - CommandCardWidget：命令卡片，可点击卡片条目后面的运行、删除按钮，点击编辑进入CommandEditorWidget子界面。
-- CommandEditorWidget：命令编辑widget（片段增删、顺序调整），命令有多个Segment条目，点击退出按钮可以返回CommandCardWidget界面，上方配置，下方可进行命令预览。整个命令编辑页使用单一 ScrollView 作为外层滚动容器，Segment 区域不再使用独立的内层 ScrollView。
-- SegmentWidget：区分literal和variable两种不同的显示方式，literal不可改为label，variable可改为lineEdit，用户在里面设置variable。
+- CommandEditorWidget：命令编辑widget，先输入命令模板，再自动生成变量输入项。点击退出按钮可返回CommandCardWidget界面，下方可进行替换后的命令预览。整个命令编辑页使用单一 ScrollView 作为外层滚动容器，变量输入区域不再使用独立的内层 ScrollView。
+- SegmentWidget：用于展示模板变量输入项，每项为“变量名 label + value lineEdit”，不再区分分段类型。
 
 ### 3.2 应用服务层
 
@@ -97,10 +98,11 @@
   - categoryId(所属的Category Id)
   - name
   - description
-  - segments
+  - template
+  - variables
   - order(Command顺序)
 - SegmentModel
-  - type: literal | variable
+  - key
   - value
 
 ### 3.4 基础设施层
@@ -161,14 +163,15 @@ BatCreator/
       "categoryId": "0",
       "name": "Echo 示例",
       "description": "输出用户输入文本",
-      "segments": [
+      "template": "E:\\unity\\build.bat %appName% %version%",
+      "variables": [
         {
-          "type": "literal",
-          "value": "echo"
+          "key": "appName",
+          "value": "DemoGame"
         },
         {
-          "type": "variable",
-          "value": "hello"
+          "key": "version",
+          "value": "1.2.3"
         }
       ]
     }
@@ -182,8 +185,10 @@ BatCreator/
 
 1. 用户在某个 Tab 点击“新增命令”。
 2. 打开 CommandEditorDialog。
-3. 用户逐行添加 Segment（literal/variable）。
-4. 写入内存状态并调用JsonBase持久化。
+3. 用户输入命令模板（例如 `E:\unity\build.bat %appName% %version%`）。
+4. 系统自动解析 `%appName%`、`%version%` 并生成输入项。
+5. 用户填写变量值。
+6. 写入内存状态并调用JsonBase持久化。
 
 ### 6.2 运行命令
 
@@ -202,7 +207,9 @@ BatCreator/
 
 为避免拼接错误，推荐流程：
 
-1. 按平台规则做转义并拼接为命令字符串在 UI 显示“预览命令”。
+1. 从模板中提取 `%变量名%`，生成变量输入表单。
+2. 预览与执行前，将 `%变量名%` 替换为用户输入值。
+3. 对替换后的参数按平台规则转义，在 UI 显示“预览命令”。
 
 Windows运行重点注意：
 
@@ -333,6 +340,6 @@ from userService import UserManager
 
 1. 可创建至少 3 个 Tab 分类。
 2. 每个分类可新增命令并保存。
-3. 命令模板可同时包含固定片段与变量片段。
+3. 命令模板支持 `%变量名%`，并自动生成对应输入项。
 4. 点击运行可在新终端窗口执行并看到结果。
 5. 重启应用后 JSON 数据完整恢复。

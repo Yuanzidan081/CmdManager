@@ -1,4 +1,5 @@
 import uuid
+import re
 from typing import List, Optional
 
 from Base.JsonBase import JsonBase
@@ -7,6 +8,9 @@ from Domain.AppState import AppState
 from Domain.CategoryModel import CategoryModel
 from Domain.CommandModel import CommandModel
 from Domain.SegmentModel import SegmentModel
+
+
+TemplateVariablePattern = re.compile(r"%([^%\s]+)%")
 
 
 class CommandService:
@@ -70,13 +74,15 @@ class CommandService:
         categoryId: str,
         name: str,
         description: str,
-        segments: list[SegmentModel],
+        template: str,
+        variables: list[SegmentModel],
     ) -> CommandModel:
         cleanName = name.strip()
         if not cleanName:
             raise ValueError("命令名称不能为空")
-        if not segments:
-            raise ValueError("至少需要一个命令片段")
+        cleanTemplate = template.strip()
+        if not cleanTemplate:
+            raise ValueError("命令模板不能为空")
 
         categoryExists = False
         for category in self.appState.categoryList:
@@ -86,13 +92,17 @@ class CommandService:
         if not categoryExists:
             raise ValueError("分类不存在")
 
+        normalizedVariables = self.normalizeVariables(cleanTemplate, variables)
+        self.validateVariables(normalizedVariables)
+
         commandOrder = self.countCommandInCategory(categoryId)
         newCommand = CommandModel(
             id=str(uuid.uuid4()),
             categoryId=categoryId,
             name=cleanName,
             description=description.strip(),
-            segments=segments,
+            template=cleanTemplate,
+            variables=normalizedVariables,
             order=commandOrder,
         )
         self.appState.commandList.append(newCommand)
@@ -105,7 +115,8 @@ class CommandService:
         commandId: str,
         name: str,
         description: str,
-        segments: list[SegmentModel],
+        template: str,
+        variables: list[SegmentModel],
     ) -> None:
         command = self.getCommandById(commandId)
         if command is None:
@@ -113,12 +124,17 @@ class CommandService:
         cleanName = name.strip()
         if not cleanName:
             raise ValueError("命令名称不能为空")
-        if not segments:
-            raise ValueError("至少需要一个命令片段")
+        cleanTemplate = template.strip()
+        if not cleanTemplate:
+            raise ValueError("命令模板不能为空")
+
+        normalizedVariables = self.normalizeVariables(cleanTemplate, variables)
+        self.validateVariables(normalizedVariables)
 
         command.name = cleanName
         command.description = description.strip()
-        command.segments = segments
+        command.template = cleanTemplate
+        command.variables = normalizedVariables
         self.appState.hasDirty = True
 
     def removeCommand(self, commandId: str) -> None:
@@ -176,21 +192,63 @@ class CommandService:
                 return command
         return None
 
-    def buildCommandPreview(self, segments: list[SegmentModel]) -> str:
-        tokenList: list[str] = []
-        for segment in segments:
-            rawValue = segment.value.strip()
-            if not rawValue:
+    def parseTemplateVariables(self, template: str) -> list[str]:
+        keyList: list[str] = []
+        keySet: set[str] = set()
+
+        for matched in TemplateVariablePattern.finditer(template):
+            key = matched.group(1).strip()
+            if not key:
                 continue
-            tokenList.append(self.quoteIfNeed(rawValue))
-        return " ".join(tokenList)
+            if key in keySet:
+                continue
+            keySet.add(key)
+            keyList.append(key)
+
+        return keyList
+
+    def normalizeVariables(self, template: str, variables: list[SegmentModel]) -> list[SegmentModel]:
+        templateKeyList = self.parseTemplateVariables(template)
+        valueMap: dict[str, str] = {}
+
+        for variable in variables:
+            key = variable.key.strip()
+            if not key:
+                continue
+            if key in valueMap:
+                continue
+            valueMap[key] = variable.value.strip()
+
+        normalizedVariables: list[SegmentModel] = []
+        for key in templateKeyList:
+            normalizedVariables.append(SegmentModel(key=key, value=valueMap.get(key, "")))
+
+        return normalizedVariables
+
+    def validateVariables(self, variables: list[SegmentModel]) -> None:
+        for variable in variables:
+            if not variable.value.strip():
+                raise ValueError(f"变量 {variable.key} 不能为空")
+
+    def buildCommandPreview(self, template: str, variables: list[SegmentModel]) -> str:
+        preview = template.strip()
+        if not preview:
+            return ""
+
+        normalizedVariables = self.normalizeVariables(preview, variables)
+        for variable in normalizedVariables:
+            placeholder = f"%{variable.key}%"
+            quotedValue = self.quoteIfNeed(variable.value.strip())
+            preview = preview.replace(placeholder, quotedValue)
+
+        return preview
 
     def runCommand(self, commandId: str, terminalType: str = "cmd") -> str:
         command = self.getCommandById(commandId)
         if command is None:
             raise ValueError("命令不存在")
 
-        commandText = self.buildCommandPreview(command.segments)
+        commandText = self.buildCommandPreview(command.template, command.variables)
         if not commandText:
             raise ValueError("命令内容为空")
 

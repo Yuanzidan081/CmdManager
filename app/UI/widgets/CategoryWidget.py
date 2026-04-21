@@ -50,7 +50,7 @@ class CategoryWidget(QWidget):
     def setCommandList(
         self,
         commandList: list[CommandModel],
-        buildPreview: Callable[[list], str],
+        buildPreview: Callable[[str, list], str],
     ) -> None:
         self.clearCommandCardList()
 
@@ -59,7 +59,7 @@ class CategoryWidget(QWidget):
             return
 
         for command in commandList:
-            commandPreview = buildPreview(command.segments)
+            commandPreview = buildPreview(command.template, command.variables)
             commandCard = CommandCardWidget(
                 command.id,
                 command.name,

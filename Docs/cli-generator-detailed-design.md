@@ -8,7 +8,7 @@
 2. 领域模型字段稳定，JSON 可双向映射。
 3. 服务层方法边界清晰，UI 不直接处理业务。
 4. 命令拼接和转义逻辑单点收敛。
-5. 支持后续扩展变量类型和多平台运行。
+5. 支持后续扩展变量校验策略和多平台运行。
 
 ## 2. UI 详细设计
 
@@ -62,28 +62,24 @@
 
 布局：
 
-1. 顶部：命令基础信息（name、description）
-2. 中部：Segment 列表（可新增、删除、排序）
+1. 顶部：命令基础信息（name、description、template）
+2. 中部：变量输入列表（根据模板中的 `%变量名%` 自动生成）
 3. 底部：预览区 + 操作按钮（保存、返回）
 
 编辑规则：
 
-1. 至少一个 Segment。
-2. 第一个 Segment 建议为 literal。
-3. variable Segment 的 value 不能为空。
+1. template 不能为空。
+2. `%变量名%` 由模板自动解析并去重。
+3. 每个变量都需要填写 value。
+4. 不再手动新增分段类型。
 
 ## 2.5 SegmentWidget
 
-literal 模式：
+变量输入模式：
 
-1. type 固定为 literal
-2. value 使用 lineEdit 输入固定文本
-
-variable 模式：
-
-1. type 固定为 variable
-2. value 使用 lineEdit 输入默认值
-3. 预留扩展字段（后续支持 key、required、inputType）
+1. key 来自模板占位符，使用 label 展示。
+2. value 使用 lineEdit 输入。
+3. 输入项由模板自动增减，不再区分分段类型。
 
 ## 2.6 视觉参数建议（对齐 CC 风格）
 
@@ -104,7 +100,7 @@ from typing import List
 
 @dataclass
 class SegmentModel:
-    type: str
+    key: str
     value: str
 
 
@@ -114,7 +110,8 @@ class CommandModel:
     categoryId: str
     name: str
     description: str
-    segments: List[SegmentModel] = field(default_factory=list)
+    template: str
+    variables: List[SegmentModel] = field(default_factory=list)
     order: int = 0
 
 
@@ -153,15 +150,16 @@ class CategoryModel:
 
 建议方法：
 
-1. addCommand(categoryId: str, name: str, description: str, segments: list[SegmentModel]) -> CommandModel
-2. updateCommand(commandId: str, name: str, description: str, segments: list[SegmentModel]) -> None
+1. addCommand(categoryId: str, name: str, description: str, template: str, variables: list[SegmentModel]) -> CommandModel
+2. updateCommand(commandId: str, name: str, description: str, template: str, variables: list[SegmentModel]) -> None
 3. removeCommand(commandId: str) -> None
 4. moveCommand(categoryId: str, commandId: str, targetIndex: int) -> None
 5. listCommand(categoryId: str) -> list[CommandModel]
-6. buildCommandPreview(segments: list[SegmentModel]) -> str
-7. runCommand(commandId: str) -> None
-8. saveAll() -> None
-9. loadAll() -> None
+6. parseTemplateVariables(template: str) -> list[str]
+7. buildCommandPreview(template: str, variables: list[SegmentModel]) -> str
+8. runCommand(commandId: str) -> None
+9. saveAll() -> None
+10. loadAll() -> None
 
 ## 5. 基础设施详细设计
 
@@ -223,29 +221,26 @@ class AppState:
 
 ## 7. 命令拼接与转义算法
 
-输入：segments
+输入：template, variables
 
 输出：可执行命令字符串
 
 算法：
 
-1. 遍历 segments。
-2. 过滤空值 segment。
-3. 对包含空格或特殊字符的 value 做引号包裹。
-4. 拼接为单空格分隔字符串。
+1. 解析 template 中的 `%变量名%`。
+2. 根据变量名匹配 variables 中的 value。
+3. 用 value 替换 template 中的 `%变量名%`。
+4. 对替换后的参数按平台规则做引号和转义处理。
 
 伪代码：
 
 ```text
-tokenList = []
-for segment in segments:
-    raw = trim(segment.value)
-    if raw is empty:
-        continue
-    token = quoteIfNeed(raw)
-    tokenList.append(token)
-command = join(tokenList, " ")
-return command
+preview = template
+for variable in variables:
+    key = "%" + variable.key + "%"
+    value = quoteIfNeed(trim(variable.value))
+    preview = replaceAll(preview, key, value)
+return preview
 ```
 
 quoteIfNeed 规则（Windows）：
@@ -259,13 +254,14 @@ quoteIfNeed 规则（Windows）：
 ## 8.1 编辑并保存命令
 
 1. 用户进入编辑页。
-2. 修改 name、description、segments。
-3. 点击保存。
-4. CommandService.updateCommand。
-5. hasDirty = True。
-6. 用户点击全局保存。
-7. CommandService.saveAll 调用 JsonBase.saveToFile。
-8. hasDirty = False。
+2. 修改 name、description、template。
+3. 系统根据 template 自动生成变量输入项，用户填写 variables。
+4. 点击保存。
+5. CommandService.updateCommand。
+6. hasDirty = True。
+7. 用户点击全局保存。
+8. CommandService.saveAll 调用 JsonBase.saveToFile。
+9. hasDirty = False。
 
 ## 8.2 运行命令
 
@@ -285,9 +281,10 @@ quoteIfNeed 规则（Windows）：
 5. CommandModel.categoryId -> commands[].categoryId
 6. CommandModel.name -> commands[].name
 7. CommandModel.description -> commands[].description
-8. CommandModel.order -> commands[].order
-9. SegmentModel.type -> commands[].segments[].type
-10. SegmentModel.value -> commands[].segments[].value
+8. CommandModel.template -> commands[].template
+9. CommandModel.order -> commands[].order
+10. SegmentModel.key -> commands[].variables[].key
+11. SegmentModel.value -> commands[].variables[].value
 
 ## 10. 异常与提示策略
 
@@ -311,6 +308,6 @@ quoteIfNeed 规则（Windows）：
 
 1. 新增 3 个分类并重启，分类仍存在。
 2. 每个分类新增至少 1 个命令并保存成功。
-3. 命令包含 literal + variable，预览拼接正确。
+3. 命令模板包含 `%appName%`、`%version%` 时，可自动生成输入项并正确替换预览。
 4. 点击 run，可在新 cmd 窗口看到执行。
 5. 删除分类后，其命令不再出现在 JSON。

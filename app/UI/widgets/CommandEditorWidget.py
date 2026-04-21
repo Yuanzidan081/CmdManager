@@ -1,3 +1,4 @@
+import re
 from typing import Callable, Optional
 
 from PyQt6.QtCore import pyqtSignal
@@ -19,14 +20,15 @@ from UI.widgets.SegmentWidget import SegmentWidget
 
 
 class CommandEditorWidget(QWidget):
-    saveRequested = pyqtSignal(str, str, str, str, list)
+    saveRequested = pyqtSignal(str, str, str, str, str, list)
     backRequested = pyqtSignal()
 
     def __init__(self):
         super().__init__()
         self.currentCommandId = ""
         self.currentCategoryId = ""
-        self.previewBuilder: Optional[Callable[[list], str]] = None
+        self.previewBuilder: Optional[Callable[[str, list], str]] = None
+        self.templateParser: Optional[Callable[[str], list[str]]] = None
 
         mainLayout = QVBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
@@ -67,10 +69,15 @@ class CommandEditorWidget(QWidget):
         self.descriptionEdit.setPlaceholderText("命令描述")
         self.descriptionEdit.setFixedHeight(70)
 
+        self.templateEdit = QLineEdit()
+        self.templateEdit.setPlaceholderText("命令模板，例如 E:\\unity\\build.bat %appName% %version%")
+
         baseLayout.addWidget(QLabel("名称"))
         baseLayout.addWidget(self.nameEdit)
         baseLayout.addWidget(QLabel("描述"))
         baseLayout.addWidget(self.descriptionEdit)
+        baseLayout.addWidget(QLabel("模板"))
+        baseLayout.addWidget(self.templateEdit)
 
         self.editorLayout.addWidget(baseCard)
 
@@ -80,15 +87,7 @@ class CommandEditorWidget(QWidget):
         segmentLayout.setContentsMargins(14, 14, 14, 14)
         segmentLayout.setSpacing(10)
 
-        actionLayout = QHBoxLayout()
-        self.addLiteralButton = QPushButton("新增 literal")
-        self.addLiteralButton.setObjectName("ghostButton")
-        self.addVariableButton = QPushButton("新增 variable")
-        self.addVariableButton.setObjectName("ghostButton")
-        actionLayout.addWidget(self.addLiteralButton)
-        actionLayout.addWidget(self.addVariableButton)
-        actionLayout.addStretch(1)
-        segmentLayout.addLayout(actionLayout)
+        segmentLayout.addWidget(QLabel("变量配置（由模板自动解析）"))
 
         self.segmentListWidget = QWidget()
         self.segmentListLayout = QVBoxLayout(self.segmentListWidget)
@@ -121,22 +120,24 @@ class CommandEditorWidget(QWidget):
         self.editorLayout.addStretch(1)
 
         self.backButton.clicked.connect(self.backRequested.emit)
-        self.addLiteralButton.clicked.connect(self.onAddLiteralClicked)
-        self.addVariableButton.clicked.connect(self.onAddVariableClicked)
         self.nameEdit.textChanged.connect(self.updatePreview)
         self.descriptionEdit.textChanged.connect(self.updatePreview)
+        self.templateEdit.textChanged.connect(self.onTemplateChanged)
         self.saveButton.clicked.connect(self.onSaveClicked)
 
-    def setPreviewBuilder(self, previewBuilder: Callable[[list], str]) -> None:
+    def setPreviewBuilder(self, previewBuilder: Callable[[str, list], str]) -> None:
         self.previewBuilder = previewBuilder
+
+    def setTemplateParser(self, templateParser: Callable[[str], list[str]]) -> None:
+        self.templateParser = templateParser
 
     def setNewCommand(self, categoryId: str) -> None:
         self.currentCommandId = ""
         self.currentCategoryId = categoryId
         self.nameEdit.clear()
         self.descriptionEdit.clear()
-        self.clearSegmentList()
-        self.addSegment("literal", "")
+        self.templateEdit.clear()
+        self.syncVariableList([])
         self.updatePreview()
 
     def loadCommand(self, command: CommandModel) -> None:
@@ -144,61 +145,56 @@ class CommandEditorWidget(QWidget):
         self.currentCategoryId = command.categoryId
         self.nameEdit.setText(command.name)
         self.descriptionEdit.setText(command.description)
-        self.clearSegmentList()
-
-        if not command.segments:
-            self.addSegment("literal", "")
-        else:
-            for segment in command.segments:
-                self.addSegment(segment.type, segment.value)
+        self.templateEdit.blockSignals(True)
+        self.templateEdit.setText(command.template)
+        self.templateEdit.blockSignals(False)
+        self.syncVariableList(command.variables)
         self.updatePreview()
 
-    def onAddLiteralClicked(self) -> None:
-        self.addSegment("literal", "")
+    def onTemplateChanged(self) -> None:
+        currentVariableList = [SegmentModel.fromDict(item) for item in self.collectVariableData()]
+        self.syncVariableList(currentVariableList)
+        self.updatePreview()
 
-    def onAddVariableClicked(self) -> None:
-        self.addSegment("variable", "")
+    def parseTemplateVariableKeys(self, template: str) -> list[str]:
+        if self.templateParser is not None:
+            return self.templateParser(template)
 
-    def addSegment(self, segmentType: str, segmentValue: str) -> None:
-        segmentWidget = SegmentWidget(segmentType, segmentValue)
+        keyList: list[str] = []
+        keySet: set[str] = set()
+        for matched in re.finditer(r"%([^%\s]+)%", template):
+            key = matched.group(1).strip()
+            if not key:
+                continue
+            if key in keySet:
+                continue
+            keySet.add(key)
+            keyList.append(key)
+        return keyList
+
+    def syncVariableList(self, variableList: list[SegmentModel]) -> None:
+        template = self.templateEdit.text()
+        keyList = self.parseTemplateVariableKeys(template)
+
+        valueMap: dict[str, str] = {}
+        for variable in variableList:
+            key = variable.key.strip()
+            if not key:
+                continue
+            if key in valueMap:
+                continue
+            valueMap[key] = variable.value
+
+        self.clearVariableList()
+        for key in keyList:
+            self.addVariableInput(key, valueMap.get(key, ""))
+
+    def addVariableInput(self, variableKey: str, variableValue: str) -> None:
+        segmentWidget = SegmentWidget(variableKey, variableValue)
         segmentWidget.dataChanged.connect(self.updatePreview)
-        segmentWidget.removeRequested.connect(self.removeSegment)
-        segmentWidget.moveUpRequested.connect(self.moveSegmentUp)
-        segmentWidget.moveDownRequested.connect(self.moveSegmentDown)
         self.segmentListLayout.insertWidget(self.segmentListLayout.count() - 1, segmentWidget)
-        self.updatePreview()
 
-    def removeSegment(self, segmentWidget: SegmentWidget) -> None:
-        if self.segmentListLayout.count() <= 2:
-            return
-        segmentWidget.setParent(None)
-        segmentWidget.deleteLater()
-        self.updatePreview()
-
-    def moveSegmentUp(self, segmentWidget: SegmentWidget) -> None:
-        index = self.findSegmentIndex(segmentWidget)
-        if index <= 0:
-            return
-        self.segmentListLayout.removeWidget(segmentWidget)
-        self.segmentListLayout.insertWidget(index - 1, segmentWidget)
-        self.updatePreview()
-
-    def moveSegmentDown(self, segmentWidget: SegmentWidget) -> None:
-        index = self.findSegmentIndex(segmentWidget)
-        if index < 0 or index >= self.segmentListLayout.count() - 2:
-            return
-        self.segmentListLayout.removeWidget(segmentWidget)
-        self.segmentListLayout.insertWidget(index + 1, segmentWidget)
-        self.updatePreview()
-
-    def findSegmentIndex(self, segmentWidget: SegmentWidget) -> int:
-        for index in range(self.segmentListLayout.count() - 1):
-            layoutItem = self.segmentListLayout.itemAt(index)
-            if layoutItem is not None and layoutItem.widget() is segmentWidget:
-                return index
-        return -1
-
-    def clearSegmentList(self) -> None:
+    def clearVariableList(self) -> None:
         while self.segmentListLayout.count() > 1:
             layoutItem = self.segmentListLayout.takeAt(0)
             widget = layoutItem.widget()
@@ -206,7 +202,7 @@ class CommandEditorWidget(QWidget):
                 widget.setParent(None)
                 widget.deleteLater()
 
-    def collectSegmentData(self) -> list[dict]:
+    def collectVariableData(self) -> list[dict]:
         dataList: list[dict] = []
         for index in range(self.segmentListLayout.count() - 1):
             layoutItem = self.segmentListLayout.itemAt(index)
@@ -218,22 +214,26 @@ class CommandEditorWidget(QWidget):
         return dataList
 
     def updatePreview(self) -> None:
-        segmentDataList = self.collectSegmentData()
-        segmentList = [SegmentModel.fromDict(item) for item in segmentDataList]
+        variableDataList = self.collectVariableData()
+        variableList = [SegmentModel.fromDict(item) for item in variableDataList]
+        template = self.templateEdit.text()
 
         if self.previewBuilder is None:
-            preview = " ".join([segment.value for segment in segmentList if segment.value.strip()])
+            preview = template
+            for variable in variableList:
+                preview = preview.replace(f"%{variable.key}%", variable.value)
         else:
-            preview = self.previewBuilder(segmentList)
+            preview = self.previewBuilder(template, variableList)
 
         self.previewLabel.setText(preview)
 
     def onSaveClicked(self) -> None:
-        segmentDataList = self.collectSegmentData()
+        variableDataList = self.collectVariableData()
         self.saveRequested.emit(
             self.currentCommandId,
             self.currentCategoryId,
             self.nameEdit.text(),
             self.descriptionEdit.toPlainText(),
-            segmentDataList,
+            self.templateEdit.text(),
+            variableDataList,
         )

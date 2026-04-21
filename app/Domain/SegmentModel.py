@@ -3,19 +3,17 @@ from dataclasses import dataclass
 
 @dataclass
 class SegmentModel:
-    type: str
+    key: str
     value: str
 
     @classmethod
     def fromDict(cls, data: dict) -> "SegmentModel":
-        segmentType = str(data.get("type", "literal"))
+        segmentKey = str(data.get("key", "")).strip()
         segmentValue = str(data.get("value", ""))
-        if segmentType not in {"literal", "variable"}:
-            segmentType = "literal"
-        return cls(type=segmentType, value=segmentValue)
+        return cls(key=segmentKey, value=segmentValue)
 
     def toDict(self) -> dict:
         return {
-            "type": self.type,
+            "key": self.key,
             "value": self.value,
         }

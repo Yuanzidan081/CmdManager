@@ -1,73 +1,46 @@
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
 )
 
 
 class SegmentWidget(QFrame):
     dataChanged = pyqtSignal()
-    removeRequested = pyqtSignal(object)
-    moveUpRequested = pyqtSignal(object)
-    moveDownRequested = pyqtSignal(object)
 
-    def __init__(self, segmentType: str = "literal", segmentValue: str = ""):
+    def __init__(self, variableKey: str, variableValue: str = ""):
         super().__init__()
         self.setObjectName("segmentCard")
+        self.variableKey = variableKey
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(8)
 
-        self.typeLabel = QLabel("类型")
-        self.typeCombo = QComboBox()
-        self.typeCombo.addItems(["literal", "variable"])
+        # self.keyLabelTitle = QLabel("变量")
+        self.keyLabel = QLabel(variableKey)
+        self.keyLabel.setObjectName("segmentKeyLabel")
 
-        self.valueLabel = QLabel("值")
+        # self.valueLabel = QLabel("值")
         self.valueEdit = QLineEdit()
-        self.valueEdit.setPlaceholderText("请输入片段值")
+        self.valueEdit.setPlaceholderText(f"请输入 {variableKey} 的值")
 
-        self.upButton = QPushButton("上移")
-        self.downButton = QPushButton("下移")
-        self.removeButton = QPushButton("删除")
-        self.removeButton.setObjectName("warnButton")
-
-        layout.addWidget(self.typeLabel)
-        layout.addWidget(self.typeCombo)
-        layout.addWidget(self.valueLabel)
+        # layout.addWidget(self.keyLabelTitle)
+        layout.addWidget(self.keyLabel)
+        # layout.addWidget(self.valueLabel)
         layout.addWidget(self.valueEdit, 1)
-        layout.addWidget(self.upButton)
-        layout.addWidget(self.downButton)
-        layout.addWidget(self.removeButton)
 
-        if segmentType in {"literal", "variable"}:
-            self.typeCombo.setCurrentText(segmentType)
-        self.valueEdit.setText(segmentValue)
+        self.valueEdit.setText(variableValue)
 
-        self.typeCombo.currentTextChanged.connect(self.onDataChanged)
         self.valueEdit.textChanged.connect(self.onDataChanged)
-        self.removeButton.clicked.connect(self.onRemoveClicked)
-        self.upButton.clicked.connect(self.onMoveUpClicked)
-        self.downButton.clicked.connect(self.onMoveDownClicked)
 
     def onDataChanged(self) -> None:
         self.dataChanged.emit()
 
-    def onRemoveClicked(self) -> None:
-        self.removeRequested.emit(self)
-
-    def onMoveUpClicked(self) -> None:
-        self.moveUpRequested.emit(self)
-
-    def onMoveDownClicked(self) -> None:
-        self.moveDownRequested.emit(self)
-
     def getData(self) -> dict:
         return {
-            "type": self.typeCombo.currentText(),
+            "key": self.variableKey,
             "value": self.valueEdit.text(),
         }
