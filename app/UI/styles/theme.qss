@@ -179,14 +179,130 @@ QTabBar::tab:selected {
     border-radius: 10px;
 }
 
+QAbstractScrollArea {
+    border: none;
+    background: #ffffff;
+}
+
 QScrollArea {
     border: none;
     background: #ffffff;
 }
 
+#commandScrollArea,
 #editorScrollArea {
     border: none;
     background: #ffffff;
+}
+
+#commandScrollArea QWidget#qt_scrollarea_viewport,
+#editorScrollArea QWidget#qt_scrollarea_viewport {
+    border: none;
+    background: #ffffff;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+    border: none;
+}
+
+QScrollBar::groove:vertical {
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background: #cfd6e1;
+    border: none;
+    border-radius: 5px;
+    min-height: 28px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #b7c1cf;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+    width: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+}
+
+QScrollBar::up-arrow:vertical,
+QScrollBar::down-arrow:vertical {
+    height: 0;
+    width: 0;
+    border: none;
+    background: transparent;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: transparent;
+    border: none;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+    margin: 2px;
+    border: none;
+}
+
+QScrollBar::groove:horizontal {
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #cfd6e1;
+    border: none;
+    border-radius: 5px;
+    min-width: 28px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #b7c1cf;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    height: 0;
+    width: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+}
+
+QScrollBar::left-arrow:horizontal,
+QScrollBar::right-arrow:horizontal {
+    height: 0;
+    width: 0;
+    border: none;
+    background: transparent;
+}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: transparent;
+    border: none;
+}
+
+QAbstractScrollArea::corner {
+    background: transparent;
+    border: none;
+}
+
+#editorBottomBar {
+    background: #ffffff;
+    border-top: 1px solid #e5e7eb;
 }
 
 QLineEdit, QTextEdit {

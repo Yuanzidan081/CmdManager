@@ -1,7 +1,7 @@
 from typing import Callable
 
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget, QPushButton
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from Domain.CommandModel import CommandModel
 from UI.widgets.CommandCardWidget import CommandCardWidget
@@ -29,6 +29,11 @@ class CategoryWidget(QWidget):
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("commandScrollArea")
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scrollArea.setFrameShape(QFrame.Shape.NoFrame)
+        self.scrollArea.setFrameShadow(QFrame.Shadow.Plain)
+        self.scrollArea.setLineWidth(0)
+        self.scrollArea.setMidLineWidth(0)
 
         self.scrollContent = QWidget()
         self.scrollLayout = QVBoxLayout(self.scrollContent)

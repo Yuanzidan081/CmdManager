@@ -32,19 +32,7 @@ class CommandEditorWidget(QWidget):
 
         mainLayout = QVBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
-        mainLayout.setSpacing(0)
-
-        self.editorScrollArea = QScrollArea()
-        self.editorScrollArea.setObjectName("editorScrollArea")
-        self.editorScrollArea.setWidgetResizable(True)
-        self.editorScrollArea.setFrameShape(QFrame.Shape.NoFrame)
-        mainLayout.addWidget(self.editorScrollArea)
-
-        self.editorContent = QWidget()
-        self.editorLayout = QVBoxLayout(self.editorContent)
-        self.editorLayout.setContentsMargins(0, 0, 0, 0)
-        self.editorLayout.setSpacing(12)
-        self.editorScrollArea.setWidget(self.editorContent)
+        mainLayout.setSpacing(10)
 
         titleLayout = QHBoxLayout()
         self.backButton = QPushButton("返回")
@@ -54,7 +42,22 @@ class CommandEditorWidget(QWidget):
         titleLayout.addWidget(self.backButton)
         titleLayout.addWidget(self.titleLabel)
         titleLayout.addStretch(1)
-        self.editorLayout.addLayout(titleLayout)
+        mainLayout.addLayout(titleLayout)
+
+        self.editorScrollArea = QScrollArea()
+        self.editorScrollArea.setObjectName("editorScrollArea")
+        self.editorScrollArea.setWidgetResizable(True)
+        self.editorScrollArea.setFrameShape(QFrame.Shape.NoFrame)
+        self.editorScrollArea.setFrameShadow(QFrame.Shadow.Plain)
+        self.editorScrollArea.setLineWidth(0)
+        self.editorScrollArea.setMidLineWidth(0)
+        mainLayout.addWidget(self.editorScrollArea, 1)
+
+        self.editorContent = QWidget()
+        self.editorLayout = QVBoxLayout(self.editorContent)
+        self.editorLayout.setContentsMargins(0, 0, 0, 0)
+        self.editorLayout.setSpacing(12)
+        self.editorScrollArea.setWidget(self.editorContent)
 
         baseCard = QFrame()
         baseCard.setObjectName("editorCard")
@@ -109,15 +112,19 @@ class CommandEditorWidget(QWidget):
         self.previewLabel.setWordWrap(True)
         previewLayout.addWidget(self.previewLabel)
 
-        saveLayout = QHBoxLayout()
-        saveLayout.addStretch(1)
-        self.saveButton = QPushButton("保存")
-        self.saveButton.setObjectName("primaryButton")
-        saveLayout.addWidget(self.saveButton)
-        previewLayout.addLayout(saveLayout)
-
         self.editorLayout.addWidget(previewCard)
         self.editorLayout.addStretch(1)
+
+        self.bottomBar = QWidget()
+        self.bottomBar.setObjectName("editorBottomBar")
+        bottomLayout = QHBoxLayout(self.bottomBar)
+        bottomLayout.setContentsMargins(0, 4, 0, 0)
+        bottomLayout.setSpacing(0)
+        bottomLayout.addStretch(1)
+        self.saveButton = QPushButton("保存")
+        self.saveButton.setObjectName("primaryButton")
+        bottomLayout.addWidget(self.saveButton)
+        mainLayout.addWidget(self.bottomBar)
 
         self.backButton.clicked.connect(self.backRequested.emit)
         self.nameEdit.textChanged.connect(self.updatePreview)

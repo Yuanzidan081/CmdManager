@@ -1,5 +1,40 @@
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+)
+
+
+class ElidedPreviewLabel(QLabel):
+    def __init__(self, text: str = ""):
+        super().__init__()
+        self._fullText = ""
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
+        self.setText(text)
+
+    def setText(self, text: str) -> None:
+        self._fullText = text or ""
+        self.setToolTip(self._fullText)
+        self.refreshElidedText()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.refreshElidedText()
+
+    def refreshElidedText(self) -> None:
+        availableWidth = max(self.contentsRect().width(), 1)
+
+        elidedText = self.fontMetrics().elidedText(
+            self._fullText,
+            Qt.TextElideMode.ElideRight,
+            availableWidth,
+        )
+        super().setText(elidedText)
 
 
 class CommandCardWidget(QFrame):
@@ -31,8 +66,10 @@ class CommandCardWidget(QFrame):
         self.descriptionLabel = QLabel(commandDescription or "")
         self.descriptionLabel.setObjectName("commandDescriptionLabel")
 
-        self.previewLabel = QLabel(commandPreview)
+        self.previewLabel = ElidedPreviewLabel(commandPreview)
         self.previewLabel.setObjectName("commandPreviewLabel")
+        self.previewLabel.setWordWrap(False)
+        self.setToolTip(commandPreview)
 
         infoLayout.addWidget(self.nameLabel)
         infoLayout.addWidget(self.descriptionLabel)
