@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QPushButton,
+    QSizePolicy,
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
@@ -95,6 +96,8 @@ class MainWindow(QMainWindow):
 
         self.noticeLabel = QLabel("")
         self.noticeLabel.setObjectName("noticeInfoLabel")
+        self.noticeLabel.setWordWrap(True)
+        self.noticeLabel.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         rootLayout.addWidget(self.noticeLabel)
 
         self.pageStack = QStackedWidget()
@@ -254,7 +257,12 @@ class MainWindow(QMainWindow):
     def onRunCommandRequested(self, commandId: str) -> None:
         try:
             commandText = self.commandService.runCommand(commandId)
-            self.showNotice(f"已在新窗口执行命令：{commandText}")
+            shortCommandText = self.shortenText(commandText, 120)
+            self.showNotice(
+                f"已在新窗口执行命令：{shortCommandText}",
+                False,
+                commandText,
+            )
         except ValueError as error:
             self.showNotice(str(error), True)
 
@@ -321,8 +329,18 @@ class MainWindow(QMainWindow):
     def onSettingClicked(self) -> None:
         self.showNotice("设置功能将在下一阶段实现")
 
-    def showNotice(self, message: str, isError: bool = False) -> None:
+    def shortenText(self, text: str, maxLength: int) -> str:
+        if maxLength <= 0:
+            return ""
+        if len(text) <= maxLength:
+            return text
+        if maxLength <= 3:
+            return "." * maxLength
+        return f"{text[:maxLength - 3]}..."
+
+    def showNotice(self, message: str, isError: bool = False, tooltipText: str = "") -> None:
         self.noticeLabel.setText(message)
+        self.noticeLabel.setToolTip(tooltipText if tooltipText else message)
         if isError:
             self.noticeLabel.setObjectName("noticeErrorLabel")
         else:
