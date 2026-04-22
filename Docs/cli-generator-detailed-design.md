@@ -54,20 +54,21 @@
 字段展示：
 
 1. name
-2. description
-3. commandPreview（由 CommandService 动态生成）
+2. commandPreview（由 CommandService 动态生成，位于 name 下方）
 
 展示规则：
 
 1. commandPreview 使用单行省略策略，超出宽度显示 `...`。
-2. 鼠标悬停 commandPreview 时显示完整命令 tooltip。
-3. 运行/编辑/删除按钮固定在右侧，始终可见。
+2. 鼠标悬停卡片时显示完整命令 tooltip。
+3. 按钮固定在右侧，窗口横向拉伸时按钮不拉伸。
+4. 窗口横向拉伸时，文本区与按钮区的间距增加。
 
 按钮：
 
-1. run
-2. edit
-3. remove
+1. copy（第一个）
+2. run
+3. edit
+4. remove
 
 ## 2.4 CommandEditorWidget
 
