@@ -9,6 +9,7 @@ from UI.widgets.CommandCardWidget import CommandCardWidget
 
 class CategoryWidget(QWidget):
     addCommandRequested = pyqtSignal(str)
+    copyCommandRequested = pyqtSignal(str)
     editCommandRequested = pyqtSignal(str)
     runCommandRequested = pyqtSignal(str)
     removeCommandRequested = pyqtSignal(str)
@@ -71,6 +72,7 @@ class CategoryWidget(QWidget):
                 command.description,
                 commandPreview,
             )
+            commandCard.copyClicked.connect(self.copyCommandRequested.emit)
             commandCard.editClicked.connect(self.editCommandRequested.emit)
             commandCard.runClicked.connect(self.runCommandRequested.emit)
             commandCard.removeClicked.connect(self.removeCommandRequested.emit)

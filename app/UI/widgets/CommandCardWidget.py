@@ -38,6 +38,7 @@ class ElidedPreviewLabel(QLabel):
 
 
 class CommandCardWidget(QFrame):
+    copyClicked = pyqtSignal(str)
     runClicked = pyqtSignal(str)
     editClicked = pyqtSignal(str)
     removeClicked = pyqtSignal(str)
@@ -78,6 +79,8 @@ class CommandCardWidget(QFrame):
         actionLayout = QHBoxLayout()
         actionLayout.setSpacing(8)
 
+        self.copyButton = QPushButton("复制")
+        self.copyButton.setObjectName("ghostButton")
         self.runButton = QPushButton("运行")
         self.runButton.setObjectName("primaryButton")
         self.editButton = QPushButton("编辑")
@@ -85,6 +88,7 @@ class CommandCardWidget(QFrame):
         self.removeButton = QPushButton("删除")
         self.removeButton.setObjectName("warnButton")
 
+        actionLayout.addWidget(self.copyButton)
         actionLayout.addWidget(self.runButton)
         actionLayout.addWidget(self.editButton)
         actionLayout.addWidget(self.removeButton)
@@ -92,9 +96,13 @@ class CommandCardWidget(QFrame):
         mainLayout.addLayout(infoLayout, 1)
         mainLayout.addLayout(actionLayout)
 
+        self.copyButton.clicked.connect(self.onCopyClicked)
         self.runButton.clicked.connect(self.onRunClicked)
         self.editButton.clicked.connect(self.onEditClicked)
         self.removeButton.clicked.connect(self.onRemoveClicked)
+
+    def onCopyClicked(self) -> None:
+        self.copyClicked.emit(self.commandId)
 
     def onRunClicked(self) -> None:
         self.runClicked.emit(self.commandId)

@@ -137,6 +137,30 @@ class CommandService:
         command.variables = normalizedVariables
         self.appState.hasDirty = True
 
+    def copyCommand(self, commandId: str) -> CommandModel:
+        sourceCommand = self.getCommandById(commandId)
+        if sourceCommand is None:
+            raise ValueError("命令不存在")
+
+        copiedVariableList: list[SegmentModel] = []
+        for variable in sourceCommand.variables:
+            copiedVariableList.append(SegmentModel(key=variable.key, value=variable.value))
+
+        copiedCommand = CommandModel(
+            id=str(uuid.uuid4()),
+            categoryId=sourceCommand.categoryId,
+            name=f"{sourceCommand.name}_copy",
+            description=sourceCommand.description,
+            template=sourceCommand.template,
+            variables=copiedVariableList,
+            order=self.countCommandInCategory(sourceCommand.categoryId),
+        )
+
+        self.appState.commandList.append(copiedCommand)
+        self.normalizeCommandOrder(sourceCommand.categoryId)
+        self.appState.hasDirty = True
+        return copiedCommand
+
     def removeCommand(self, commandId: str) -> None:
         command = self.getCommandById(commandId)
         if command is None:

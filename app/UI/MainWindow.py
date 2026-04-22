@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
             commandList = self.commandService.listCommand(category.id)
             categoryWidget.setCommandList(commandList, self.commandService.buildCommandPreview)
             categoryWidget.addCommandRequested.connect(self.onAddCommandRequested)
+            categoryWidget.copyCommandRequested.connect(self.onCopyCommandRequested)
             categoryWidget.editCommandRequested.connect(self.onEditCommandRequested)
             categoryWidget.runCommandRequested.connect(self.onRunCommandRequested)
             categoryWidget.removeCommandRequested.connect(self.onRemoveCommandRequested)
@@ -240,6 +241,15 @@ class MainWindow(QMainWindow):
         self.appState.editingCommandId = commandId
         self.commandEditorWidget.loadCommand(command)
         self.pageStack.setCurrentWidget(self.commandEditorWidget)
+
+    def onCopyCommandRequested(self, commandId: str) -> None:
+        try:
+            copiedCommand = self.commandService.copyCommand(commandId)
+            self.refreshCategoryTabs()
+            self.showNotice(f"已复制命令：{copiedCommand.name}")
+            self.onEditCommandRequested(copiedCommand.id)
+        except ValueError as error:
+            self.showNotice(str(error), True)
 
     def onRunCommandRequested(self, commandId: str) -> None:
         try:
