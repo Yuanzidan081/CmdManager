@@ -49,7 +49,7 @@ class CategoryWidget(QWidget):
         self.emptyLabel.setObjectName("emptyTipLabel")
 
         self.addCommandButton.clicked.connect(self.onAddCommandClicked)
-
+        self.setMinimumWidth(950)
     def onAddCommandClicked(self) -> None:
         self.addCommandRequested.emit(self.categoryId)
 

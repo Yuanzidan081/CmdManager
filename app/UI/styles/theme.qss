@@ -157,6 +157,13 @@ QTabBar::tab:selected {
     color: #344054;
 }
 
+#commandCardPreviewLabel {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #344054;
+}
+
 #emptyTipLabel {
     color: #98a2b3;
     padding: 8px;

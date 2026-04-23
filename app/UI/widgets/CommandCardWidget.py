@@ -14,9 +14,12 @@ class FixedElidedPreviewLabel(QLabel):
         super().__init__()
         self.fullText = ""
         self.maxDisplayWidth = max(1, maxDisplayWidth)
-        self.setMinimumWidth(0)
-        self.setMaximumWidth(self.maxDisplayWidth)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        # self.setMinimumWidth(0)
+        # self.setMaximumWidth(self.maxDisplayWidth)
+        # self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setFixedWidth(self.maxDisplayWidth)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.setText(text)
 
     def setMaxDisplayWidth(self, maxDisplayWidth: int) -> None:
@@ -34,7 +37,12 @@ class FixedElidedPreviewLabel(QLabel):
         self.refreshElidedText()
 
     def refreshElidedText(self) -> None:
-        visibleWidth = max(min(self.contentsRect().width(), self.maxDisplayWidth), 1)
+        visibleWidth = max(self.contentsRect().width(), 1)
+        fullTextWidth = self.fontMetrics().horizontalAdvance(self.fullText)
+        # if fullTextWidth <= visibleWidth:
+        #     super().setText(self.fullText)
+        #     return
+
         elidedText = self.fontMetrics().elidedText(
             self.fullText,
             Qt.TextElideMode.ElideRight,
@@ -76,7 +84,7 @@ class CommandCardWidget(QFrame):
             commandPreview,
             maxDisplayWidth=self.previewMaxDisplayWidth,
         )
-        self.previewLabel.setObjectName("commandPreviewLabel")
+        self.previewLabel.setObjectName("commandCardPreviewLabel")
         self.previewLabel.setWordWrap(False)
 
         infoLayout.addWidget(self.nameLabel)
@@ -112,7 +120,7 @@ class CommandCardWidget(QFrame):
         actionLayout.addWidget(self.editButton)
         actionLayout.addWidget(self.removeButton)
 
-        mainLayout.addLayout(infoLayout, 1)
+        mainLayout.addLayout(infoLayout, 0)
         mainLayout.addStretch(1)
         mainLayout.addLayout(actionLayout, 0)
 

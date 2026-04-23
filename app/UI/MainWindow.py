@@ -75,12 +75,6 @@ class MainWindow(QMainWindow):
         self.saveButton = QPushButton("保存")
         self.saveButton.setObjectName("primaryButton")
 
-        self.importButton = QPushButton("导入")
-        self.importButton.setObjectName("ghostButton")
-
-        self.exportButton = QPushButton("导出")
-        self.exportButton.setObjectName("ghostButton")
-
         self.settingButton = QPushButton("设置")
         self.settingButton.setObjectName("ghostButton")
 
@@ -88,8 +82,6 @@ class MainWindow(QMainWindow):
         topBarLayout.addWidget(self.renameCategoryButton)
         topBarLayout.addWidget(self.removeCategoryButton)
         topBarLayout.addWidget(self.saveButton)
-        topBarLayout.addWidget(self.importButton)
-        topBarLayout.addWidget(self.exportButton)
         topBarLayout.addWidget(self.settingButton)
 
         rootLayout.addWidget(topBarWidget)
@@ -126,8 +118,6 @@ class MainWindow(QMainWindow):
         self.renameCategoryButton.clicked.connect(self.onRenameCategoryClicked)
         self.removeCategoryButton.clicked.connect(self.onRemoveCategoryClicked)
         self.saveButton.clicked.connect(self.onSaveClicked)
-        self.importButton.clicked.connect(self.onImportClicked)
-        self.exportButton.clicked.connect(self.onExportClicked)
         self.settingButton.clicked.connect(self.onSettingClicked)
         self.categoryTabWidget.currentChanged.connect(self.onCategoryTabChanged)
 
@@ -319,12 +309,6 @@ class MainWindow(QMainWindow):
             self.showNotice("保存成功")
         except Exception as error:
             self.showNotice(f"保存失败：{error}", True)
-
-    def onImportClicked(self) -> None:
-        self.showNotice("导入功能将在下一阶段实现")
-
-    def onExportClicked(self) -> None:
-        self.showNotice("导出功能将在下一阶段实现")
 
     def onSettingClicked(self) -> None:
         self.showNotice("设置功能将在下一阶段实现")
