@@ -14,10 +14,9 @@ class CategoryWidget(QWidget):
     runCommandRequested = pyqtSignal(str)
     removeCommandRequested = pyqtSignal(str)
 
-    def __init__(self, categoryId: str, categoryName: str):
+    def __init__(self, categoryId: str):
         super().__init__()
         self.categoryId = categoryId
-        self.categoryName = categoryName
 
         mainLayout = QVBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
@@ -50,6 +49,7 @@ class CategoryWidget(QWidget):
 
         self.addCommandButton.clicked.connect(self.onAddCommandClicked)
         self.setMinimumWidth(950)
+
     def onAddCommandClicked(self) -> None:
         self.addCommandRequested.emit(self.categoryId)
 

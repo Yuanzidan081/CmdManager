@@ -58,7 +58,6 @@ class CommandService:
 
     def saveAll(self) -> None:
         categoryList = sorted(self.appState.categoryList, key=lambda item: item.order)
-        commandList = list(self.appState.commandList)
         for category in categoryList:
             self.normalizeCommandOrder(category.id)
 
@@ -171,30 +170,6 @@ class CommandService:
             item for item in self.appState.commandList if item.id != commandId
         ]
         self.normalizeCommandOrder(categoryId)
-        self.appState.hasDirty = True
-
-    def moveCommand(self, categoryId: str, commandId: str, targetIndex: int) -> None:
-        commandList = self.listCommand(categoryId)
-        currentIndex = -1
-        for index, command in enumerate(commandList):
-            if command.id == commandId:
-                currentIndex = index
-                break
-
-        if currentIndex < 0:
-            raise ValueError("命令不存在")
-        if targetIndex < 0 or targetIndex >= len(commandList):
-            raise ValueError("目标位置无效")
-
-        command = commandList.pop(currentIndex)
-        commandList.insert(targetIndex, command)
-
-        otherCommandList = [
-            item for item in self.appState.commandList if item.categoryId != categoryId
-        ]
-        for index, item in enumerate(commandList):
-            item.order = index
-        self.appState.commandList = otherCommandList + commandList
         self.appState.hasDirty = True
 
     def listCommand(self, categoryId: str) -> list[CommandModel]:

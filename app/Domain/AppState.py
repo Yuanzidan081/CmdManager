@@ -10,5 +10,4 @@ class AppState:
     categoryList: List[CategoryModel] = field(default_factory=list)
     commandList: List[CommandModel] = field(default_factory=list)
     selectedCategoryId: Optional[str] = None
-    editingCommandId: Optional[str] = None
     hasDirty: bool = False

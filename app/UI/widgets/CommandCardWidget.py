@@ -13,19 +13,10 @@ class FixedElidedPreviewLabel(QLabel):
     def __init__(self, text: str = "", maxDisplayWidth: int = 620):
         super().__init__()
         self.fullText = ""
-        self.maxDisplayWidth = max(1, maxDisplayWidth)
-        # self.setMinimumWidth(0)
-        # self.setMaximumWidth(self.maxDisplayWidth)
-        # self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.setFixedWidth(self.maxDisplayWidth)
+        self.setFixedWidth(max(1, maxDisplayWidth))
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.setText(text)
-
-    def setMaxDisplayWidth(self, maxDisplayWidth: int) -> None:
-        self.maxDisplayWidth = max(1, maxDisplayWidth)
-        self.setMaximumWidth(self.maxDisplayWidth)
-        self.refreshElidedText()
 
     def setText(self, text: str) -> None:
         self.fullText = text or ""
@@ -38,11 +29,6 @@ class FixedElidedPreviewLabel(QLabel):
 
     def refreshElidedText(self) -> None:
         visibleWidth = max(self.contentsRect().width(), 1)
-        fullTextWidth = self.fontMetrics().horizontalAdvance(self.fullText)
-        # if fullTextWidth <= visibleWidth:
-        #     super().setText(self.fullText)
-        #     return
-
         elidedText = self.fontMetrics().elidedText(
             self.fullText,
             Qt.TextElideMode.ElideRight,

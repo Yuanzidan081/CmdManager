@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
         selectedIndex = -1
 
         for index, category in enumerate(categoryList):
-            categoryWidget = CategoryWidget(category.id, category.name)
+            categoryWidget = CategoryWidget(category.id)
             commandList = self.commandService.listCommand(category.id)
             categoryWidget.setCommandList(commandList, self.commandService.buildCommandPreview)
             categoryWidget.addCommandRequested.connect(self.onAddCommandRequested)
@@ -221,7 +221,6 @@ class MainWindow(QMainWindow):
             self.showNotice(str(error), True)
 
     def onAddCommandRequested(self, categoryId: str) -> None:
-        self.appState.editingCommandId = None
         self.commandEditorWidget.setNewCommand(categoryId)
         self.pageStack.setCurrentWidget(self.commandEditorWidget)
 
@@ -231,7 +230,6 @@ class MainWindow(QMainWindow):
             self.showNotice("命令不存在", True)
             return
 
-        self.appState.editingCommandId = commandId
         self.commandEditorWidget.loadCommand(command)
         self.pageStack.setCurrentWidget(self.commandEditorWidget)
 
@@ -294,14 +292,12 @@ class MainWindow(QMainWindow):
                 )
             self.refreshCategoryTabs()
             self.pageStack.setCurrentWidget(self.commandListPage)
-            self.appState.editingCommandId = None
             self.showNotice("命令保存成功")
         except ValueError as error:
             self.showNotice(str(error), True)
 
     def onEditorBackRequested(self) -> None:
         self.pageStack.setCurrentWidget(self.commandListPage)
-        self.appState.editingCommandId = None
 
     def onSaveClicked(self) -> None:
         try:

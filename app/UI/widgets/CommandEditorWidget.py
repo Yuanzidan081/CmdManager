@@ -128,7 +128,6 @@ class CommandEditorWidget(QWidget):
 
         self.backButton.clicked.connect(self.backRequested.emit)
         self.nameEdit.textChanged.connect(self.updatePreview)
-        self.descriptionEdit.textChanged.connect(self.updatePreview)
         self.templateEdit.textChanged.connect(self.onTemplateChanged)
         self.saveButton.clicked.connect(self.onSaveClicked)
 
