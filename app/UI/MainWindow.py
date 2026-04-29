@@ -13,11 +13,14 @@ from PyQt6.QtWidgets import (
 )
 
 from Domain.AppState import AppState
+from Domain.GlobalVariableModel import GlobalVariableModel
 from Domain.SegmentModel import SegmentModel
 from Services.CategoryService import CategoryService
 from Services.CommandService import CommandService
+from Services.GlobalVariableService import GlobalVariableService
 from UI.widgets.CategoryWidget import CategoryWidget
 from UI.widgets.CommandEditorWidget import CommandEditorWidget
+from UI.widgets.GlobalVarWidget import GlobalVarWidget
 
 
 class MainWindow(QMainWindow):
@@ -26,11 +29,13 @@ class MainWindow(QMainWindow):
         appState: AppState,
         categoryService: CategoryService,
         commandService: CommandService,
+        globalVariableService: GlobalVariableService,
     ):
         super().__init__()
         self.appState = appState
         self.categoryService = categoryService
         self.commandService = commandService
+        self.globalVariableService = globalVariableService
 
         self.setWindowTitle("CmdManager")
         self.resize(1080, 720)
@@ -109,9 +114,13 @@ class MainWindow(QMainWindow):
         self.commandEditorWidget = CommandEditorWidget()
         self.commandEditorWidget.setPreviewBuilder(self.commandService.buildCommandPreview)
         self.commandEditorWidget.setTemplateParser(self.commandService.parseTemplateVariables)
+        self.commandEditorWidget.setGlobalVariableProvider(self.getGlobalVariableList)
+
+        self.globalVarWidget = GlobalVarWidget()
 
         self.pageStack.addWidget(self.commandListPage)
         self.pageStack.addWidget(self.commandEditorWidget)
+        self.pageStack.addWidget(self.globalVarWidget)
         self.pageStack.setCurrentWidget(self.commandListPage)
 
         self.addCategoryButton.clicked.connect(self.onAddCategoryClicked)
@@ -123,6 +132,8 @@ class MainWindow(QMainWindow):
 
         self.commandEditorWidget.saveRequested.connect(self.onEditorSaveRequested)
         self.commandEditorWidget.backRequested.connect(self.onEditorBackRequested)
+        self.globalVarWidget.backRequested.connect(self.onSettingBackRequested)
+        self.globalVarWidget.saveRequested.connect(self.onGlobalVarSaveRequested)
 
     def refreshCategoryTabs(self) -> None:
         selectedCategoryId = self.appState.selectedCategoryId
@@ -307,7 +318,38 @@ class MainWindow(QMainWindow):
             self.showNotice(f"保存失败：{error}", True)
 
     def onSettingClicked(self) -> None:
-        self.showNotice("设置功能将在下一阶段实现")
+        self.globalVarWidget.setGlobalVariableDataList(
+            [
+                {
+                    "key": item.key,
+                    "value": item.value,
+                }
+                for item in self.globalVariableService.listGlobalVariable()
+            ]
+        )
+        self.appState.isSettingsPage = True
+        self.pageStack.setCurrentWidget(self.globalVarWidget)
+
+    def onSettingBackRequested(self) -> None:
+        self.appState.isSettingsPage = False
+        self.pageStack.setCurrentWidget(self.commandListPage)
+
+    def onGlobalVarSaveRequested(self, variableDataList: list) -> None:
+        try:
+            globalVariableList = [
+                GlobalVariableModel.fromDict(item) for item in variableDataList
+            ]
+            self.globalVariableService.replaceAll(globalVariableList)
+            self.commandService.saveAll()
+            self.refreshCategoryTabs()
+            self.showNotice("全局变量保存成功")
+        except ValueError as error:
+            self.showNotice(str(error), True)
+        except Exception as error:
+            self.showNotice(f"保存失败：{error}", True)
+
+    def getGlobalVariableList(self) -> list[GlobalVariableModel]:
+        return self.globalVariableService.listGlobalVariable()
 
     def shortenText(self, text: str, maxLength: int) -> str:
         if maxLength <= 0:

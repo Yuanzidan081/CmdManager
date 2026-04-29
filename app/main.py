@@ -8,6 +8,7 @@ from Base.TerminalBase import TerminalBase
 from Domain.AppState import AppState
 from Services.CategoryService import CategoryService
 from Services.CommandService import CommandService
+from Services.GlobalVariableService import GlobalVariableService
 from UI.MainWindow import MainWindow
 
 
@@ -49,6 +50,7 @@ def main() -> int:
     appState = AppState()
 
     categoryService = CategoryService(appState)
+    globalVariableService = GlobalVariableService(appState)
     commandService = CommandService(
         appState,
         jsonBase,
@@ -66,7 +68,7 @@ def main() -> int:
     if styleSheet:
         app.setStyleSheet(styleSheet)
 
-    mainWindow = MainWindow(appState, categoryService, commandService)
+    mainWindow = MainWindow(appState, categoryService, commandService, globalVariableService)
     mainWindow.show()
     return app.exec()
 

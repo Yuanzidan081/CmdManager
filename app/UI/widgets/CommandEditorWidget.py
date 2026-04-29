@@ -10,12 +10,15 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QTextEdit,
+    QDialog,
     QVBoxLayout,
     QWidget,
 )
 
 from Domain.CommandModel import CommandModel
+from Domain.GlobalVariableModel import GlobalVariableModel
 from Domain.SegmentModel import SegmentModel
+from UI.widgets.GlobalVarPickerWidget import GlobalVarPickerWidget
 from UI.widgets.SegmentWidget import SegmentWidget
 
 
@@ -29,6 +32,7 @@ class CommandEditorWidget(QWidget):
         self.currentCategoryId = ""
         self.previewBuilder: Optional[Callable[[str, list], str]] = None
         self.templateParser: Optional[Callable[[str], list[str]]] = None
+        self.globalVariableProvider: Optional[Callable[[], list[GlobalVariableModel]]] = None
 
         mainLayout = QVBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
@@ -75,12 +79,21 @@ class CommandEditorWidget(QWidget):
         self.templateEdit = QLineEdit()
         self.templateEdit.setPlaceholderText("命令模板，例如 E:\\unity\\build.bat %appName% %version%")
 
+        self.insertGlobalVariableButton = QPushButton("插入全局变量")
+        self.insertGlobalVariableButton.setObjectName("ghostButton")
+
+        templateLayout = QHBoxLayout()
+        templateLayout.setContentsMargins(0, 0, 0, 0)
+        templateLayout.setSpacing(8)
+        templateLayout.addWidget(self.templateEdit, 1)
+        templateLayout.addWidget(self.insertGlobalVariableButton, 0)
+
         baseLayout.addWidget(QLabel("名称"))
         baseLayout.addWidget(self.nameEdit)
         baseLayout.addWidget(QLabel("描述"))
         baseLayout.addWidget(self.descriptionEdit)
         baseLayout.addWidget(QLabel("模板"))
-        baseLayout.addWidget(self.templateEdit)
+        baseLayout.addLayout(templateLayout)
 
         self.editorLayout.addWidget(baseCard)
 
@@ -129,6 +142,7 @@ class CommandEditorWidget(QWidget):
         self.backButton.clicked.connect(self.backRequested.emit)
         self.nameEdit.textChanged.connect(self.updatePreview)
         self.templateEdit.textChanged.connect(self.onTemplateChanged)
+        self.insertGlobalVariableButton.clicked.connect(self.onInsertGlobalVariableClicked)
         self.saveButton.clicked.connect(self.onSaveClicked)
 
     def setPreviewBuilder(self, previewBuilder: Callable[[str, list], str]) -> None:
@@ -136,6 +150,12 @@ class CommandEditorWidget(QWidget):
 
     def setTemplateParser(self, templateParser: Callable[[str], list[str]]) -> None:
         self.templateParser = templateParser
+
+    def setGlobalVariableProvider(
+        self,
+        globalVariableProvider: Callable[[], list[GlobalVariableModel]],
+    ) -> None:
+        self.globalVariableProvider = globalVariableProvider
 
     def setNewCommand(self, categoryId: str) -> None:
         self.currentCommandId = ""
@@ -223,15 +243,55 @@ class CommandEditorWidget(QWidget):
         variableDataList = self.collectVariableData()
         variableList = [SegmentModel.fromDict(item) for item in variableDataList]
         template = self.templateEdit.text()
+        globalVariableList = []
+        if self.globalVariableProvider is not None:
+            globalVariableList = self.globalVariableProvider()
 
         if self.previewBuilder is None:
             preview = template
             for variable in variableList:
                 preview = preview.replace(f"%{variable.key}%", variable.value)
         else:
-            preview = self.previewBuilder(template, variableList)
+            try:
+                preview = self.previewBuilder(template, variableList, globalVariableList)
+            except TypeError:
+                preview = self.previewBuilder(template, variableList)
 
         self.previewLabel.setText(preview)
+
+    def onInsertGlobalVariableClicked(self) -> None:
+        if self.globalVariableProvider is None:
+            return
+
+        globalVariableList = self.globalVariableProvider()
+        pickerWidget = GlobalVarPickerWidget(self)
+        pickerWidget.setVariableDataList(
+            [
+                {
+                    "key": item.key,
+                    "value": item.value,
+                    "description": item.description,
+                }
+                for item in globalVariableList
+            ]
+        )
+
+        if pickerWidget.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        selectedKey = pickerWidget.getSelectedVariableKey()
+        if not selectedKey:
+            return
+
+        self.insertTextAtCursor(f"${selectedKey}$")
+        self.updatePreview()
+
+    def insertTextAtCursor(self, text: str) -> None:
+        cursorPosition = self.templateEdit.cursorPosition()
+        currentText = self.templateEdit.text()
+        updatedText = f"{currentText[:cursorPosition]}{text}{currentText[cursorPosition:]}"
+        self.templateEdit.setText(updatedText)
+        self.templateEdit.setCursorPosition(cursorPosition + len(text))
 
     def onSaveClicked(self) -> None:
         variableDataList = self.collectVariableData()

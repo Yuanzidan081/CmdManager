@@ -7,10 +7,12 @@ from Base.TerminalBase import TerminalBase
 from Domain.AppState import AppState
 from Domain.CategoryModel import CategoryModel
 from Domain.CommandModel import CommandModel
+from Domain.GlobalVariableModel import GlobalVariableModel
 from Domain.SegmentModel import SegmentModel
 
 
 TemplateVariablePattern = re.compile(r"%([^%\s]+)%")
+GlobalVariablePattern = re.compile(r"\$([A-Za-z0-9_]+)\$")
 
 
 class CommandService:
@@ -40,8 +42,16 @@ class CommandService:
         for commandData in jsonData.get("commands", []):
             commandList.append(CommandModel.fromDict(commandData))
 
+        globalVariableList: List[GlobalVariableModel] = []
+        for variableData in jsonData.get("globalVariables", []):
+            variable = GlobalVariableModel.fromDict(variableData)
+            if not variable.key:
+                continue
+            globalVariableList.append(variable)
+
         self.appState.categoryList = categoryList
         self.appState.commandList = commandList
+        self.appState.globalVariableList = globalVariableList
 
         if categoryList:
             validSelected = False
@@ -64,6 +74,7 @@ class CommandService:
         jsonData = {
             "categories": [category.toDict() for category in categoryList],
             "commands": [command.toDict() for command in self.appState.commandList],
+            "globalVariables": [item.toDict() for item in self.appState.globalVariableList],
         }
         self.jsonBase.saveToFile(self.dataFilePath, jsonData)
         self.appState.hasDirty = False
@@ -229,10 +240,20 @@ class CommandService:
             if not variable.value.strip():
                 raise ValueError(f"变量 {variable.key} 不能为空")
 
-    def buildCommandPreview(self, template: str, variables: list[SegmentModel]) -> str:
+    def buildCommandPreview(
+        self,
+        template: str,
+        variables: list[SegmentModel],
+        globalVariables: Optional[list[GlobalVariableModel]] = None,
+    ) -> str:
         preview = template.strip()
         if not preview:
             return ""
+
+        if globalVariables is None:
+            globalVariables = self.appState.globalVariableList
+
+        preview = self.replaceGlobalVariables(preview, globalVariables)
 
         normalizedVariables = self.normalizeVariables(preview, variables)
         for variable in normalizedVariables:
@@ -251,8 +272,50 @@ class CommandService:
         if not commandText:
             raise ValueError("命令内容为空")
 
+        unresolvedGlobalKeyList = self.parseGlobalVariableKeys(commandText)
+        if unresolvedGlobalKeyList:
+            unresolvedText = ", ".join(unresolvedGlobalKeyList)
+            raise ValueError(f"全局变量不存在或未设置：{unresolvedText}")
+
         self.terminalBase.run(commandText, terminalType)
         return commandText
+
+    def parseGlobalVariableKeys(self, template: str) -> list[str]:
+        keyList: list[str] = []
+        keySet: set[str] = set()
+
+        for matched in GlobalVariablePattern.finditer(template):
+            key = matched.group(1).strip()
+            if not key:
+                continue
+            if key in keySet:
+                continue
+            keySet.add(key)
+            keyList.append(key)
+
+        return keyList
+
+    def replaceGlobalVariables(
+        self,
+        template: str,
+        globalVariables: list[GlobalVariableModel],
+    ) -> str:
+        keyToValueMap: dict[str, str] = {}
+        for item in globalVariables:
+            key = item.key.strip()
+            if not key:
+                continue
+            if key in keyToValueMap:
+                continue
+            keyToValueMap[key] = item.value
+
+        def replaceMatched(matched: re.Match) -> str:
+            key = matched.group(1).strip()
+            if key in keyToValueMap:
+                return self.quoteIfNeed(keyToValueMap[key])
+            return matched.group(0)
+
+        return GlobalVariablePattern.sub(replaceMatched, template)
 
     def quoteIfNeed(self, rawValue: str) -> str:
         cleanValue = rawValue.strip()

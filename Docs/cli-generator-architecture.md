@@ -44,6 +44,19 @@
   - 模板：`E:\unity\build.bat %appName% %version%`
   - 输入：`appName=DemoGame`，`version=1.2.3`
   - 预览：`E:\unity\build.bat DemoGame 1.2.3`
+- （新增）增加的全局变量在模板中可以使用`$全局变量名$`表示全局变量
+- （新增）示例：
+  - 全局变量：`UNITY_ROOT=E:\unity`
+  - 模板：`$UNITY_ROOT$\build.bat %appName% %version%`
+  - 输入：`appName=DemoGame`，`version=1.2.3`
+  - 预览：`E:\unity\build.bat DemoGame 1.2.3`
+- （设计）需要方便用户检索全局变量，不能让用户记得那么多全局变量名。
+  - 在 `CommandEditorWidget` 的模板输入区域新增“插入全局变量”按钮。
+  - 点击按钮弹出 `GlobalVarPickerWidget`（交互风格参考 Unity Add Component）。
+  - 弹层顶部为搜索框，支持按变量名实时模糊过滤；中部为可滚动列表，支持鼠标滚轮与键盘上下选择。
+  - 列表项悬停显示 tooltip，内容包含：变量名、当前值。
+  - 单击选中点击widget添加按钮后，将变量按 `$变量名$` 语法插入模板输入框当前光标位置。
+  - 弹层支持 Esc 关闭或者鼠标，关闭后焦点回到模板输入框。
 
 ### 2.3 多 Tab 分类（需求 3）
 
@@ -61,6 +74,12 @@
 
 - 启动时从 JSON 加载。
 - 编辑后手动保存按钮覆盖原来的json的字段。
+- （新增）全局变量（可选择放在 `commands.json` 内的 `globalVariables` 字段）。
+
+### 2.6 设置视图 （需求6）
+
+- （新增）全局变量视图：新增的设置视图入口位于主窗口上方的“设置”按钮。点击后切换到视图（SettingsWidget），当前实现仅包含“全局变量”管理页面（GlobalVarWidget），展示全局变量列表并提供新增/编辑/删除/保存操作，左上角保留返回主界面的控件。
+- （新增）在全局变量管理页增加检索能力：支持搜索框、滚动浏览、按名称排序，便于变量数量较多时快速定位。
 
 ## 3. 分层架构
 
@@ -80,7 +99,8 @@
 - MainWindow：主窗口，承载 Tab 与命令卡片列表。
 - CategoryWidget：分类管理(tab形式)，各个分类下可以包含多个命令卡片，可新增、删除、重命名。
 - CommandCardWidget：命令卡片，展示命令名称和名称下方的单行预览；预览使用 QLabel 透明无边框展示，并采用固定宽度省略策略；支持复制、运行、编辑、删除操作，点击编辑进入CommandEditorWidget子界面。
-- CommandEditorWidget：命令编辑widget，先输入命令模板，再自动生成变量输入项。顶部返回区域固定，底部保存区域固定；中间内容使用单一 ScrollView 作为外层滚动容器，变量输入区域不再使用独立的内层 ScrollView。滚动区样式保持扁平，无凸起边框。
+- CommandEditorWidget：命令编辑widget，先输入命令模板，再自动生成变量输入项。模板输入区域包含“插入全局变量”按钮，按钮弹出 `GlobalVarPickerWidget` 供检索与插入 `$变量名$`。顶部返回区域固定，底部保存区域固定；中间内容使用单一 ScrollView 作为外层滚动容器，变量输入区域不再使用独立的内层 ScrollView。滚动区样式保持扁平，无凸起边框。
+- GlobalVarPickerWidget：用于在命令编辑过程中检索和插入全局变量的弹层组件，包含搜索框、可滚动变量列表、tooltip 详情展示、回车确认插入。
 - ScrollBar 视觉策略：对 ScrollArea 相关的 QScrollBar 使用全局扁平样式（包含 groove、handle、arrow、corner），确保命令列表与编辑页滚动条风格一致且无凸起。
 - SegmentWidget：用于展示模板变量输入项，每项为“变量名 label + value lineEdit”，不再区分分段类型。
 
@@ -91,7 +111,8 @@
 核心服务：
 
 - CategoryService：分类新增、删除、重命名
-- CommandService：命令编辑、运行、修改、保存、调整顺序
+- CommandService：命令编辑、运行、修改、保存、调整顺序；负责模板中 `$变量名$` 与 `%变量名%` 的渲染顺序和执行前替换。
+- GlobalVariableService：全局变量增删改查、名称检索、排序，以及为 `GlobalVarPickerWidget` 提供展示数据。
 
 ### 3.3 领域模型层
 
@@ -185,7 +206,18 @@ BatCreator/
     }
   ]
 }
+
+建议扩展：加入一个顶层的 `globalVariables` 字段，用于保存全局变量，示例：
+
+```json
+"globalVariables": [
+  {
+    "key": "UNITY_PATH",
+    "value": "E:\\Program Files\\Unity"
+  }
+]
 ```
+
 
 ## 6. 核心流程
 
@@ -194,9 +226,10 @@ BatCreator/
 1. 用户在某个 Tab 点击“新增命令”。
 2. 打开 CommandEditorDialog。
 3. 用户输入命令模板（例如 `E:\unity\build.bat %appName% %version%`）。
-4. 系统自动解析 `%appName%`、`%version%` 并生成输入项。
-5. 用户填写变量值。
-6. 写入内存状态并调用JsonBase持久化。
+4. 如需使用全局变量，用户可点击“插入全局变量”按钮，打开选择弹层并搜索/选择变量，系统将 `$变量名$` 插入到当前光标位置。
+5. 系统自动解析 `%appName%`、`%version%` 并生成输入项。
+6. 用户填写变量值。
+7. 写入内存状态并调用JsonBase持久化。
 
 ### 6.2 运行命令
 
@@ -211,13 +244,23 @@ BatCreator/
 3. 触发 UI Tab 重绘。
 4. 保存 JSON。
 
+### 6.4 全局变量检索与插入
+
+1. 用户在 `CommandEditorWidget` 点击“插入全局变量”。
+2. 系统弹出 `GlobalVarPickerWidget`，默认展示全部变量。
+3. 用户输入关键字，列表实时过滤并可滚动浏览。
+4. 用户悬停某一项查看 tooltip（变量名、值、描述）。
+5. 用户双击或回车确认，系统将 `$变量名$` 插入模板输入框光标位置。
+6. 关闭弹层并返回编辑状态，预览区立即刷新。
+
 ## 7. 命令渲染与转义策略
 
 为避免拼接错误，推荐流程：
 
 1. 从模板中提取 `%变量名%`，生成变量输入表单。
-2. 预览与执行前，将 `%变量名%` 替换为用户输入值。
-3. 对替换后的参数按平台规则转义，在 UI 显示“预览命令”。
+2. 预览与执行前，先将 `$变量名$` 替换为 `globalVariables` 对应值。
+3. 再将 `%变量名%` 替换为用户输入值。
+4. 对替换后的参数按平台规则转义，在 UI 显示“预览命令”。
 
 Windows运行重点注意：
 
@@ -352,3 +395,4 @@ from userService import UserManager
 3. 命令模板支持 `%变量名%`，并自动生成对应输入项。
 4. 点击运行可在新终端窗口执行并看到结果。
 5. 重启应用后 JSON 数据完整恢复。
+6. 在命令编辑页点击“插入全局变量”可弹出检索弹层，支持搜索、滚动选择、悬停 tooltip，并可将 `$变量名$` 插入模板。
