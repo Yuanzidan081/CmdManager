@@ -1,5 +1,6 @@
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -130,6 +131,7 @@ class MainWindow(QMainWindow):
         self.settingButton.clicked.connect(self.onSettingClicked)
         self.categoryTabWidget.currentChanged.connect(self.onCategoryTabChanged)
 
+        self.commandEditorWidget.copyPreviewRequested.connect(self.onCopyPreviewRequested)
         self.commandEditorWidget.saveRequested.connect(self.onEditorSaveRequested)
         self.commandEditorWidget.backRequested.connect(self.onEditorBackRequested)
         self.globalVarWidget.backRequested.connect(self.onSettingBackRequested)
@@ -153,6 +155,7 @@ class MainWindow(QMainWindow):
             categoryWidget.editCommandRequested.connect(self.onEditCommandRequested)
             categoryWidget.runCommandRequested.connect(self.onRunCommandRequested)
             categoryWidget.removeCommandRequested.connect(self.onRemoveCommandRequested)
+            categoryWidget.moveCommandRequested.connect(self.onMoveCommandRequested)
             self.categoryTabWidget.addTab(categoryWidget, category.name)
             if category.id == selectedCategoryId:
                 selectedIndex = index
@@ -243,6 +246,28 @@ class MainWindow(QMainWindow):
 
         self.commandEditorWidget.loadCommand(command)
         self.pageStack.setCurrentWidget(self.commandEditorWidget)
+
+    def onCopyPreviewRequested(self, commandText: str) -> None:
+        if not commandText.strip():
+            return
+        try:
+            QApplication.clipboard().setText(commandText)
+            self.showNotice("已复制命令")
+        except Exception as error:
+            self.showNotice(f"复制失败：{error}", True)
+
+    def onMoveCommandRequested(self, commandId: str, targetIndex: int) -> None:
+        categoryId = self.appState.selectedCategoryId
+        if not categoryId:
+            self.showNotice("请先选择分类", True)
+            return
+        try:
+            self.commandService.moveCommand(categoryId, commandId, targetIndex)
+            self.refreshCategoryTabs()
+            self.showNotice("已调整命令顺序")
+        except ValueError as error:
+            self.refreshCategoryTabs()
+            self.showNotice(str(error), True)
 
     def onCopyCommandRequested(self, commandId: str) -> None:
         try:

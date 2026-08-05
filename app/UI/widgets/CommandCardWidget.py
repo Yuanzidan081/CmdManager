@@ -42,6 +42,7 @@ class CommandCardWidget(QFrame):
 
     copyClicked = pyqtSignal(str)
     runClicked = pyqtSignal(str)
+    moveClicked = pyqtSignal(str, int)
     editClicked = pyqtSignal(str)
     removeClicked = pyqtSignal(str)
 
@@ -51,9 +52,12 @@ class CommandCardWidget(QFrame):
         commandName: str,
         commandDescription: str,
         commandPreview: str,
+        commandIndex: int,
+        commandCount: int,
     ):
         super().__init__()
         self.commandId = commandId
+        self.commandIndex = commandIndex
         self.setObjectName("commandCard")
 
         mainLayout = QHBoxLayout(self)
@@ -62,67 +66,55 @@ class CommandCardWidget(QFrame):
 
         infoLayout = QVBoxLayout()
         infoLayout.setSpacing(4)
-
         self.nameLabel = QLabel(commandName)
         self.nameLabel.setObjectName("commandNameLabel")
-
         self.previewLabel = FixedElidedPreviewLabel(
             commandPreview,
             maxDisplayWidth=self.previewMaxDisplayWidth,
         )
         self.previewLabel.setObjectName("commandCardPreviewLabel")
         self.previewLabel.setWordWrap(False)
-
         infoLayout.addWidget(self.nameLabel)
         infoLayout.addWidget(self.previewLabel)
 
-        tooltipText = (commandPreview or "").strip()
-        if not tooltipText:
-            tooltipText = (commandDescription or "").strip()
-        if not tooltipText:
-            tooltipText = commandName
+        tooltipText = (commandPreview or commandDescription or commandName).strip()
         self.setToolTip(tooltipText)
         self.nameLabel.setToolTip(tooltipText)
         self.previewLabel.setToolTip(tooltipText)
 
         actionLayout = QHBoxLayout()
         actionLayout.setSpacing(8)
-
-        self.copyButton = QPushButton("复制")
-        self.copyButton.setObjectName("ghostButton")
-        self.copyButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.runButton = QPushButton("运行")
-        self.runButton.setObjectName("primaryButton")
-        self.runButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.editButton = QPushButton("编辑")
-        self.editButton.setObjectName("ghostButton")
-        self.editButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.removeButton = QPushButton("删除")
-        self.removeButton.setObjectName("warnButton")
-        self.removeButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-        actionLayout.addWidget(self.copyButton)
-        actionLayout.addWidget(self.runButton)
-        actionLayout.addWidget(self.editButton)
-        actionLayout.addWidget(self.removeButton)
+        self.copyButton = self.createButton("复制", "ghostButton")
+        self.runButton = self.createButton("运行", "primaryButton")
+        self.moveUpButton = self.createButton("上移", "ghostButton")
+        self.moveDownButton = self.createButton("下移", "ghostButton")
+        self.editButton = self.createButton("编辑", "ghostButton")
+        self.removeButton = self.createButton("删除", "warnButton")
+        self.moveUpButton.setEnabled(commandIndex > 0)
+        self.moveDownButton.setEnabled(commandIndex < commandCount - 1)
+        for button in (
+            self.copyButton,
+            self.runButton,
+            self.moveUpButton,
+            self.moveDownButton,
+            self.editButton,
+            self.removeButton,
+        ):
+            actionLayout.addWidget(button)
 
         mainLayout.addLayout(infoLayout, 0)
         mainLayout.addStretch(1)
         mainLayout.addLayout(actionLayout, 0)
 
-        self.copyButton.clicked.connect(self.onCopyClicked)
-        self.runButton.clicked.connect(self.onRunClicked)
-        self.editButton.clicked.connect(self.onEditClicked)
-        self.removeButton.clicked.connect(self.onRemoveClicked)
+        self.copyButton.clicked.connect(lambda: self.copyClicked.emit(self.commandId))
+        self.runButton.clicked.connect(lambda: self.runClicked.emit(self.commandId))
+        self.moveUpButton.clicked.connect(lambda: self.moveClicked.emit(self.commandId, commandIndex - 1))
+        self.moveDownButton.clicked.connect(lambda: self.moveClicked.emit(self.commandId, commandIndex + 1))
+        self.editButton.clicked.connect(lambda: self.editClicked.emit(self.commandId))
+        self.removeButton.clicked.connect(lambda: self.removeClicked.emit(self.commandId))
 
-    def onCopyClicked(self) -> None:
-        self.copyClicked.emit(self.commandId)
-
-    def onRunClicked(self) -> None:
-        self.runClicked.emit(self.commandId)
-
-    def onEditClicked(self) -> None:
-        self.editClicked.emit(self.commandId)
-
-    def onRemoveClicked(self) -> None:
-        self.removeClicked.emit(self.commandId)
+    def createButton(self, text: str, objectName: str) -> QPushButton:
+        button = QPushButton(text)
+        button.setObjectName(objectName)
+        button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        return button

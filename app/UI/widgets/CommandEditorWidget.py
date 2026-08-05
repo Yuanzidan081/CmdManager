@@ -25,6 +25,7 @@ from UI.widgets.SegmentWidget import SegmentWidget
 class CommandEditorWidget(QWidget):
     saveRequested = pyqtSignal(str, str, str, str, str, list)
     backRequested = pyqtSignal()
+    copyPreviewRequested = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -119,7 +120,15 @@ class CommandEditorWidget(QWidget):
         previewLayout = QVBoxLayout(previewCard)
         previewLayout.setContentsMargins(14, 14, 14, 14)
         previewLayout.setSpacing(8)
-        previewLayout.addWidget(QLabel("命令预览"))
+        previewTitleLayout = QHBoxLayout()
+        previewTitleLayout.setContentsMargins(0, 0, 0, 0)
+        previewTitleLayout.addWidget(QLabel("命令预览"))
+        previewTitleLayout.addStretch(1)
+        self.copyPreviewButton = QPushButton("复制")
+        self.copyPreviewButton.setObjectName("ghostButton")
+        self.copyPreviewButton.setEnabled(False)
+        previewTitleLayout.addWidget(self.copyPreviewButton)
+        previewLayout.addLayout(previewTitleLayout)
         self.previewLabel = QLabel("")
         self.previewLabel.setObjectName("commandPreviewLabel")
         self.previewLabel.setWordWrap(True)
@@ -143,6 +152,7 @@ class CommandEditorWidget(QWidget):
         self.nameEdit.textChanged.connect(self.updatePreview)
         self.templateEdit.textChanged.connect(self.onTemplateChanged)
         self.insertGlobalVariableButton.clicked.connect(self.onInsertGlobalVariableClicked)
+        self.copyPreviewButton.clicked.connect(self.onCopyPreviewClicked)
         self.saveButton.clicked.connect(self.onSaveClicked)
 
     def setPreviewBuilder(self, previewBuilder: Callable[[str, list], str]) -> None:
@@ -258,6 +268,12 @@ class CommandEditorWidget(QWidget):
                 preview = self.previewBuilder(template, variableList)
 
         self.previewLabel.setText(preview)
+        self.copyPreviewButton.setEnabled(bool(preview.strip()))
+
+    def onCopyPreviewClicked(self) -> None:
+        preview = self.previewLabel.text()
+        if preview.strip():
+            self.copyPreviewRequested.emit(preview)
 
     def onInsertGlobalVariableClicked(self) -> None:
         if self.globalVariableProvider is None:

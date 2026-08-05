@@ -183,11 +183,30 @@ class CommandService:
         self.normalizeCommandOrder(categoryId)
         self.appState.hasDirty = True
 
+    def moveCommand(self, categoryId: str, commandId: str, targetIndex: int) -> None:
+        categoryCommandList = self.listCommand(categoryId)
+        sourceIndex = next(
+            (index for index, item in enumerate(categoryCommandList) if item.id == commandId),
+            -1,
+        )
+        if sourceIndex < 0:
+            raise ValueError("命令不存在或不属于当前分类")
+        if targetIndex < 0 or targetIndex >= len(categoryCommandList):
+            raise ValueError("命令排序目标无效")
+        if sourceIndex == targetIndex:
+            return
+
+        command = categoryCommandList.pop(sourceIndex)
+        categoryCommandList.insert(targetIndex, command)
+        for index, item in enumerate(categoryCommandList):
+            item.order = index
+        self.appState.hasDirty = True
+
     def listCommand(self, categoryId: str) -> list[CommandModel]:
         categoryCommandList = [
             item for item in self.appState.commandList if item.categoryId == categoryId
         ]
-        return sorted(categoryCommandList, key=lambda item: item.order)
+        return sorted(categoryCommandList, key=lambda item: (item.order, item.id))
 
     def countCommandInCategory(self, categoryId: str) -> int:
         count = 0
