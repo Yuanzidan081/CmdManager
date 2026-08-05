@@ -1,267 +1,258 @@
 # CmdManager 详细设计
 
-## 1. 目标与边界
+## 1. 目标与范围
 
-本设计落实 [架构说明](./cli-generator-architecture.md) 中的交互与职责划分。CmdManager 管理分类、命令模板和全局变量，负责生成最终命令、复制到剪贴板或在 Windows 终端运行。
+本设计落实 [架构说明](./cli-generator-architecture.md) 的“模板 → 实例 → 流程”模型，将当前扁平的命令卡片列表调整为可复用、可编排的命令管理界面。
 
-本次增量包含两项：
+本期包含：模板、实例、流程、按实例同步模板、流程执行、旧数据迁移，以及已有分类、全局变量、预览复制和单步运行能力的兼容。流程不支持跳过步骤，也不提供模板修改后的批量强制同步。
 
-1. 在命令编辑页的“命令预览”右侧提供复制按钮。
-2. 在命令卡片中提供上移、下移操作，仅调整当前分类内的命令顺序。
+## 2. 数据模型与持久化
 
-`CommandService` 是生成最终命令与调整命令顺序的唯一业务入口；UI 不直接拼接命令、不直接写入 `order` 或 JSON。
-
-## 2. 页面与控件
-
-### 2.1 MainWindow
-
-使用 `QStackedWidget` 承载以下页面：
-
-- `CommandListPage`：按当前分类展示命令卡片。
-- `CommandEditorPage`：新增或编辑命令。
-- `SettingsPage`：管理全局变量。
-
-职责：维护 `AppState`、绑定页面事件、调用 Service、刷新页面，以及统一处理剪贴板和通知。
-
-关键回调：
-
-```python
-def onCopyCommandRequested(command: str) -> None
-def onMoveCommandRequested(commandId: str, targetIndex: int) -> None
-def refreshCommandList() -> None
-```
-
-`onCopyCommandRequested` 使用 `QApplication.clipboard().setText(command)` 写入系统剪贴板；成功显示“已复制命令”，失败显示“复制失败：{原因}”。
-
-### 2.2 CategoryWidget
-
-职责：显示分类 Tab 与当前分类的命令卡片列表。
-
-- 新增、重命名、删除分类；删除分类须二次确认，并级联删除其命令。
-- 命令列表仅纵向滚动，不显示横向滚动条。
-- 本期不支持分类拖拽排序；命令排序由卡片的上移、下移按钮完成。
-- 刷新命令列表时，先按 `order` 升序获取当前分类命令，再为每张卡片计算当前位置和总数。
-
-```python
-def createCommandCard(command: CommandModel, index: int, total: int) -> CommandCardWidget
-def onCardMoveRequested(commandId: str, direction: int) -> None
-```
-
-`direction` 为 `-1`（上移）或 `1`（下移）。目标索引越界时不调用 Service。
-
-### 2.3 CommandCardWidget
-
-职责：展示一条已保存命令及其操作。
-
-字段：
-
-1. `name`。
-2. `commandPreview`：由 `CommandService.buildCommandPreview` 生成，位于名称下方。
-
-展示规则：
-
-- 预览使用透明、无边框的 `QLabel`，单行省略；最大显示宽度为 620。
-- 卡片 tooltip 显示完整最终命令。
-- 操作区固定在右侧，窗口拉伸时按钮不拉伸。
-
-操作按钮顺序：复制、运行、上移、下移、编辑、删除。
-
-```python
-def setOrderState(index: int, total: int) -> None
-
-copyRequested = pyqtSignal(str)
-runRequested = pyqtSignal(str)
-moveRequested = pyqtSignal(str, int)
-editRequested = pyqtSignal(str)
-removeRequested = pyqtSignal(str)
-```
-
-`setOrderState` 规则：首项禁用上移；末项禁用下移；仅一项时两个按钮均禁用。上移和下移只改变当前分类的相邻两项。
-
-### 2.4 CommandEditorWidget
-
-布局：
-
-1. 顶部固定区：返回按钮与标题。
-2. 中部单一滚动区：名称、描述、模板、变量输入和命令预览。
-3. 底部固定区：保存按钮。
-
-命令预览卡片采用标题行布局：左侧“命令预览”，右侧“复制”按钮；下一行显示可换行的预览文本。
-
-```python
-def refreshPreview() -> None
-def onCopyPreviewClick() -> None
-
-copyPreviewRequested = pyqtSignal(str)
-saveRequested = pyqtSignal(dict)
-backRequested = pyqtSignal()
-```
-
-交互规则：
-
-- 模板变更或变量值变更时调用 `refreshPreview`。
-- `refreshPreview` 必须调用注入的 `CommandService.buildCommandPreview`，不能在 Widget 中自行替换变量。
-- 预览为空时禁用复制按钮；非空时启用。
-- 点击复制仅发出 `copyPreviewRequested(previewText)`，不保存、不执行、不改动模板或变量。
-- 模板不能为空；`%变量名%` 自动解析并去重，生成对应 `SegmentWidget`。
-- “插入全局变量”从选择器插入 `$变量名$` 到模板输入框当前光标位置。
-
-### 2.5 SegmentWidget 与全局变量页面
-
-`SegmentWidget` 使用“变量名 Label + 值 LineEdit”，输入项随模板变量自动增减。
-
-`SettingsWidget` / `GlobalVarWidget` 提供全局变量的新增、编辑、删除、搜索和名称排序；`key` 非空且全局唯一。`GlobalVarPickerWidget` 支持搜索、滚动、tooltip、双击或回车插入 `$变量名$`。
-
-## 3. 领域模型与 JSON
+### 2.1 模型
 
 ```python
 @dataclass
-class SegmentModel:
+class VariableValue:
     key: str
-    value: str
+    value: str = ""
 
 @dataclass
-class GlobalVariableModel:
-    key: str
-    value: str
-    description: str = ""
+class TemplateSnapshot:
+    template: str
+    defaultVariables: list[VariableValue]
 
 @dataclass
-class CommandModel:
+class CommandTemplate:
     id: str
     categoryId: str
     name: str
     description: str
     template: str
-    variables: list[SegmentModel] = field(default_factory=list)
-    order: int = 0
+    defaultVariables: list[VariableValue]
+    revision: int = 1
 
 @dataclass
-class CategoryModel:
+class CommandInstance:
     id: str
+    templateId: str
+    workflowId: str | None
     name: str
-    order: int = 0
+    order: int
+    templateSnapshot: TemplateSnapshot
+    templateRevision: int
+    variableOverrides: list[VariableValue]
+    pendingVariableKeys: list[str]
+
+@dataclass
+class Workflow:
+    id: str
+    categoryId: str
+    name: str
+    description: str
+    order: int
 ```
 
-数据存储为 `data/commands.json`：
+`Category` 和 `GlobalVariableModel` 延续现有字段。所有 `id` 全局唯一；模板、流程必须引用存在的分类；实例必须引用存在的模板；实例的 `workflowId` 为空表示未编排。
+
+### 2.2 JSON 结构
+
+`data/commands.json` 保存为单一文档：
 
 ```json
 {
-  "categories": [{ "id": "android", "name": "Android", "order": 0 }],
-  "commands": [{
-    "id": "simpleperf-record",
-    "categoryId": "android",
-    "name": "simpleperf-record-3new",
-    "description": "",
-    "template": "adb shell ... %packageName%",
-    "variables": [{ "key": "packageName", "value": "com.example.app" }],
-    "order": 0
+  "schemaVersion": 2,
+  "categories": [{ "id": "simpleperf", "name": "SimplePerf", "order": 0 }],
+  "templates": [{
+    "id": "tpl-record",
+    "categoryId": "simpleperf",
+    "name": "record",
+    "description": "采集性能数据",
+    "template": "adb shell simpleperf record -o %output% -app %package%",
+    "defaultVariables": [{ "key": "output", "value": "/data/local/tmp/perf.data" }],
+    "revision": 3
   }],
+  "instances": [{
+    "id": "ins-record-3new",
+    "templateId": "tpl-record",
+    "workflowId": "wf-3new",
+    "name": "record-3new",
+    "order": 0,
+    "templateSnapshot": {
+      "template": "adb shell simpleperf record -o %output% -app %package%",
+      "defaultVariables": [{ "key": "output", "value": "/data/local/tmp/perf.data" }]
+    },
+    "templateRevision": 3,
+    "variableOverrides": [{ "key": "package", "value": "com.example.app" }],
+    "pendingVariableKeys": []
+  }],
+  "workflows": [{ "id": "wf-3new", "categoryId": "simpleperf", "name": "3new", "description": "", "order": 0 }],
   "globalVariables": [{ "key": "SDK_ROOT", "value": "E:\\sdk", "description": "" }]
 }
 ```
 
-约束：
+保存前校验并归一化排序：同一分类的流程、同一流程的实例，`order` 均连续为 `0..n-1`。模板本身不需要排序字段，按名称显示；需要手动排序时再新增 `order` 字段及迁移规则。
 
-- `id` 全局唯一，`categoryId` 必须存在。
-- 同一分类内的命令按 `order` 排序；排序后 `order` 必须从 0 开始连续。
-- 删除分类时同步删除关联命令。
-- 旧 JSON 缺少 `globalVariables` 或 `order` 时，分别按空数组和列表当前位置兼容处理；下次保存写回完整字段。
+### 2.3 变量和值的有效来源
 
-## 4. 服务层
+实例有效变量由 `templateSnapshot.defaultVariables` 和 `variableOverrides` 合并得到：同名覆盖值优先。`pendingVariableKeys` 只记录需要确认的键，不参与值合并。
 
-### 4.1 CommandService
+模板变量以命令文本中 `%key%` 的首次出现顺序为准；保存模板时自动去重，并删除 `defaultVariables` 中不再存在的键。实例同步时按该顺序重建快照变量。
+
+## 3. 服务层设计
+
+### 3.1 TemplateService
 
 ```python
-def listCommand(categoryId: str) -> list[CommandModel]
-def buildCommandPreview(
-    template: str,
-    variables: list[SegmentModel],
-    globalVariables: list[GlobalVariableModel]
-) -> str
-def moveCommand(categoryId: str, commandId: str, targetIndex: int) -> None
-def runCommand(commandId: str) -> None
-def saveAll() -> None
-def loadAll() -> None
+listTemplates(categoryId: str, keyword: str = "") -> list[CommandTemplate]
+createTemplate(payload: TemplatePayload) -> CommandTemplate
+updateTemplate(templateId: str, payload: TemplatePayload) -> CommandTemplate
+deleteTemplate(templateId: str) -> None
+parseVariableKeys(template: str) -> list[str]
 ```
 
-`listCommand` 返回指定分类、按 `(order, id)` 升序排列的副本或只读结果。
+- 新建模板的 `revision` 为 `1`；每次成功更新递增一次。
+- 删除前查询实例引用。存在引用时禁止删除，并提示引用数量，避免产生孤儿实例。
+- `updateTemplate` 只修改模板，不触碰实例快照、覆盖值或待处理状态。
 
-`moveCommand` 算法：
+### 3.2 InstanceService
 
-1. 取出 `categoryId` 下的命令并按当前 `order` 排序。
-2. 校验目标命令属于该分类，且 `targetIndex` 位于 `[0, len(commands) - 1]`。
-3. 从原位置移除目标命令，插入到 `targetIndex`。
-4. 遍历重排结果，依次写入 `order = 0..n-1`。
-5. 标记 `AppState.hasDirty = True`；不影响其他分类命令。
-
-越界、命令不存在或分类不匹配时抛出可展示的业务错误，UI 刷新当前列表而不改变数据。
-
-### 4.2 CategoryService / GlobalVariableService
-
-- `CategoryService` 负责分类的新增、重命名、删除和级联清理。
-- `GlobalVariableService` 负责全局变量校验、增删改查、搜索和排序。
-- 任一数据写操作均标记 `hasDirty`；全局保存成功后清除该标记。
-
-## 5. 命令构建、复制与运行
-
-`buildCommandPreview` 的输出同时供编辑页预览、卡片预览、复制和运行使用，确保四处结果一致。
-
-处理顺序：
-
-1. 从模板替换 `$全局变量$`。
-2. 再替换 `%命令变量%`。
-3. 对包含空格或引号的参数按 Windows 规则引用和转义。
-4. 未找到的全局变量保留原文；运行前阻止执行并提示。
-
-```text
-preview = replaceGlobalVariables(template, globalVariables)
-preview = replaceCommandVariables(preview, variables)
-return preview
+```python
+createInstance(templateId: str, workflowId: str | None, name: str | None = None) -> CommandInstance
+listInstances(workflowId: str | None) -> list[CommandInstance]
+updateInstance(instanceId: str, name: str, overrides: list[VariableValue], pendingKeys: list[str]) -> CommandInstance
+syncTemplate(instanceId: str) -> CommandInstance
+moveInstance(instanceId: str, targetIndex: int) -> None
+moveToWorkflow(instanceId: str, workflowId: str | None, targetIndex: int | None = None) -> None
+buildCommandPreview(instanceId: str) -> str
+runInstance(instanceId: str) -> None
 ```
 
-- 编辑页和卡片的复制操作均传递最终命令文本给 `MainWindow`。
-- 运行操作调用同一构建逻辑后交给 `TerminalBase.runInCmd`。
-- 剪贴板失败只提示错误，不影响编辑状态和 `hasDirty`。
+创建实例时复制模板文本、默认变量和当前 `revision` 到快照；默认名称采用模板名称，可在编辑时修改。实例编辑只允许改名称和覆盖值，不能直接修改快照命令文本。
 
-## 6. 交互时序
+`syncTemplate` 的步骤：
 
-### 6.1 复制编辑页预览
+1. 读取关联模板及旧实例覆盖值。
+2. 使用模板当前命令文本和默认变量重建 `templateSnapshot`。
+3. 保留键名仍存在的覆盖值；删除已不存在的覆盖值。
+4. 对新增键、或模板变量重命名后无法继承原覆盖值的键，写入 `pendingVariableKeys`；值取模板默认值，默认值不存在时为空字符串。
+5. 更新 `templateRevision` 为模板 `revision`，标记数据已修改。
 
-1. 用户编辑模板或变量，`refreshPreview` 刷新预览并更新复制按钮状态。
-2. 用户点击“复制”。
-3. `CommandEditorWidget` 发出 `copyPreviewRequested(previewText)`。
-4. `MainWindow` 写入系统剪贴板并展示成功或失败通知。
+实例卡片同步状态按 `templateRevision < template.revision` 判断；存在 `pendingVariableKeys` 时优先显示“待确认”。
 
-### 6.2 调整命令顺序
+### 3.3 WorkflowService
 
-1. 用户在卡片点击“上移”或“下移”。
-2. `CategoryWidget` 根据当前位置计算目标索引；边界项因按钮禁用无法触发。
-3. `MainWindow` 调用 `CommandService.moveCommand`。
-4. Service 重排同分类 `order` 并标记脏状态。
-5. UI 刷新卡片列表和边界按钮；用户保存后顺序写入 JSON。
+```python
+listWorkflows(categoryId: str) -> list[Workflow]
+createWorkflow(categoryId: str, name: str, description: str) -> Workflow
+updateWorkflow(workflowId: str, name: str, description: str) -> Workflow
+deleteWorkflow(workflowId: str) -> None
+moveWorkflow(workflowId: str, targetIndex: int) -> None
+runWorkflow(workflowId: str, failurePolicy: FailurePolicy) -> None
+```
 
-### 6.3 保存与恢复
+删除流程不删除其中实例，而是将它们的 `workflowId` 设为空，并重新编号未编排实例。流程排序仅影响同一分类。
 
-1. 所有增删改和排序均更新 AppState 并标记 `hasDirty`。
-2. 用户点击全局保存，`CommandService.saveAll` 调用 `JsonBase.saveToFile`。
-3. 重启后 `loadAll` 读取 JSON，并按 `order` 恢复每个分类的命令顺序。
+### 3.4 命令构建和运行
 
-## 7. 异常与验收
+所有预览、复制、单步运行和流程运行均调用同一个构建函数：
 
-提示策略：
+```python
+buildFinalCommand(snapshot: TemplateSnapshot,
+                  overrides: list[VariableValue],
+                  globalVariables: list[GlobalVariableModel]) -> str
+```
 
-- JSON 读取失败：提示“配置读取失败，已使用空数据”。
-- 保存失败：提示原因，保留 `hasDirty`。
-- 剪贴板失败：提示“复制失败”及系统错误信息。
-- 排序目标非法：拒绝操作并刷新列表。
-- 删除分类：确认框说明受影响的命令数量。
+处理顺序固定为：合并快照默认值与覆盖值 → 替换 `$全局变量$` → 替换 `%命令变量%` → Windows 参数引号和转义。未解析的变量保留原文本；执行前统一校验，存在未解析变量或待确认变量时阻止运行并指出键名。复制预览允许复制当前文本，但需提示其包含未解析变量。
 
-验收用例：
+## 4. 界面与交互
 
-1. 编辑页预览为空时复制按钮禁用；输入有效模板后按钮启用。
-2. 编辑页复制的剪贴板内容与当前预览、运行前生成的最终命令完全一致。
-3. 同一分类有 3 条命令时，中间项可上移和下移；首项上移、末项下移均禁用。
-4. 排序后 `commands[].order` 在该分类内连续为 `0..n-1`，其他分类不受影响。
-5. 保存并重启后，命令显示顺序与排序结果一致。
-6. 复制和排序不改变模板变量替换、运行、编辑、删除和全局变量功能。
+### 4.1 主界面
+
+`MainWindow` 保留分类 Tab 和全局变量入口。分类内容采用 `QSplitter` 双栏布局：
+
+- 左栏“模板库”：搜索框、新建模板按钮、可折叠的模板卡片列表；折叠箭头收起/恢复整栏。
+- 右栏“流程”：新建流程按钮、未编排命令区和流程卡片列表。
+- 模板卡片提供编辑、删除、“添加到流程”和“创建未编排实例”。“添加到流程”使用流程选择弹窗，确认后创建新实例，不复用已存在实例。
+
+主窗口负责页面切换、调用服务、剪贴板写入、错误提示及变更后刷新；Widget 不直接读写 JSON 或拼接命令。
+
+### 4.2 流程与实例卡片
+
+流程卡片头部显示名称、描述、展开/收起、运行流程、编辑、删除，以及流程上移/下移。展开后按 `order` 显示实例卡片。
+
+实例卡片显示名称、单行命令预览、所属模板名和同步状态，操作顺序为：复制、运行、同步模板、上移、下移、编辑、移出流程。未编排区的实例不显示“移出流程”，而提供“加入流程”。首项禁用上移，末项禁用下移。
+
+同步状态：
+
+| 条件 | 显示 |
+| --- | --- |
+| `pendingVariableKeys` 非空 | 红色“待确认” |
+| 实例版本低于模板版本 | 黄色“模板有更新” |
+| 其他 | 灰色“已同步” |
+
+### 4.3 统一编辑页
+
+编辑页根据对象类型显示不同表单：
+
+| 对象 | 可编辑内容 | 只读内容 |
+| --- | --- | --- |
+| 模板 | 名称、描述、命令文本、默认变量 | 当前版本号 |
+| 实例 | 名称、变量覆盖值、待确认字段 | 模板名、快照命令文本、同步版本 |
+| 流程 | 名称、描述 | 流程步骤 |
+
+模板编辑时解析变量文本，生成默认值输入项。实例编辑时显示有效值；覆盖值与模板默认值相同则在保存时删除该覆盖项。待确认字段采用红色边框和提示文字；用户填写或确认该字段后，将其从 `pendingVariableKeys` 移除。
+
+命令预览区右侧保留“复制”按钮。预览变化时刷新按钮状态；空预览禁用复制。点击后只向 `MainWindow` 发出文本，由主窗口写入系统剪贴板并提示结果。
+
+### 4.4 流程运行
+
+点击“运行流程”后先显示模式选择对话框：
+
+- `STOP_ON_FAILURE`：失败即中止，默认选项。
+- `CONTINUE_ON_FAILURE`：记录失败并继续后续步骤。
+
+确认后先校验所有步骤；任一步不可执行则不启动终端并显示步骤名称和原因。通过校验后，在同一新 cmd 窗口中按排序执行；每步输出 `=== [序号/总数] 实例名 ===`。中止模式以 `&&` 连接；继续模式以独立命令和错误码输出连接。单步运行沿用现有终端启动方式。
+
+## 5. 事件时序
+
+### 5.1 添加模板到流程
+
+1. 用户在模板卡片点击“添加到流程”并选择目标流程。
+2. `MainWindow` 调用 `InstanceService.createInstance(templateId, workflowId)`。
+3. 服务生成当前模板快照，追加到目标流程末尾并重新编号。
+4. 主窗口刷新模板库和流程区。
+
+### 5.2 单实例同步
+
+1. 用户在有更新或待确认状态的实例卡片点击“同步模板”。
+2. 主窗口调用 `InstanceService.syncTemplate(instanceId)`。
+3. 服务按同步规则更新快照、覆盖值、待确认键和版本。
+4. 主窗口打开或刷新实例编辑页；待确认键以红色提示。
+
+### 5.3 排序或移动
+
+1. 用户点击实例上移、下移或加入/移出流程。
+2. 服务只调整受影响容器的实例列表，并写回连续 `order`。
+3. 所有写操作设定 `AppState.hasDirty = True`；保存成功后清除。
+
+## 6. 旧数据迁移
+
+加载时按 `schemaVersion` 决定是否迁移。缺少版本号或存在旧 `commands` 数组即视为旧格式：
+
+1. 在同目录创建 `commands.backup-YYYYMMDD-HHmmss.json`，备份失败则停止迁移并提示。
+2. 保留分类和全局变量；按旧命令 `template` 的完全一致文本分组，每组创建一个模板。
+3. 每条旧命令创建一个未编排实例：命令文本和原变量作为快照；与组选定默认值不同的变量进入覆盖值。
+4. 不创建任何流程，也不推断 SimplePerf 的业务组。
+5. 写入 `schemaVersion: 2` 后再进入正常加载流程。
+
+迁移必须可重复执行：只有旧格式会触发迁移，已是版本 2 的文件不再创建备份或重复生成数据。
+
+## 7. 校验、异常与验收
+
+- 名称去除首尾空白，模板、流程名称不能为空；同分类内模板和流程名称分别唯一。
+- 命令模板不能为空；变量键不能为空且唯一。
+- 删除模板有实例引用时拒绝；删除流程将实例归入未编排区。
+- JSON 读取或保存失败时显示原因；保存失败保留脏状态。
+- 剪贴板失败仅提示，不改变数据状态。
+
+验收应覆盖：模板修改不影响未同步实例；同步保留匹配覆盖值并标红新增待确认变量；实例可加入、移出、排序并持久化；流程按两种失败策略在同一终端执行；旧数据先备份后去重迁移，且不自动生成业务流程；已有预览复制、分类和全局变量功能仍可用。

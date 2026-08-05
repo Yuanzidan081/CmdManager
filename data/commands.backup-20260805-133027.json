@@ -1,0 +1,410 @@
+{
+  "categories": [
+    {
+      "id": "2080c0d3-8228-4b32-8404-b658b687e16b",
+      "name": "TBBuild",
+      "order": 0
+    },
+    {
+      "id": "809ea9c7-6d74-4244-b78c-bbdc05c213f3",
+      "name": "UnityBuild",
+      "order": 1
+    },
+    {
+      "id": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "SimplePerf",
+      "order": 2
+    }
+  ],
+  "commands": [
+    {
+      "id": "cb2617c7-ad48-4259-a1c1-34c19fe0377d",
+      "categoryId": "2080c0d3-8228-4b32-8404-b658b687e16b",
+      "name": "TBBuild2-AndroidNOSDK",
+      "description": "TBBuild2-AndroidNOSDK",
+      "template": "%unityPath% -quit -batchmode -projectPath %projectPath% -executeMethod %method% -logFile %logFilePath% & move \"%srcSymbolPath%\" \"%dstSymbolPath%\"",
+      "variables": [
+        {
+          "key": "unityPath",
+          "value": "D:\\UnityForHarmonyOHOS\\SourceCode\\build\\WindowsEditor\\x64\\Debug\\Unity.exe"
+        },
+        {
+          "key": "projectPath",
+          "value": "D:\\TB\\trunk\\Client\\GameClient"
+        },
+        {
+          "key": "method",
+          "value": "BuildPipelineXEditor.BuildAppAndroid"
+        },
+        {
+          "key": "logFilePath",
+          "value": "D:\\TB\\trunk\\Client\\GameClient\\mylog\\buildlog.txt"
+        },
+        {
+          "key": "srcSymbolPath",
+          "value": "D:\\TB\\trunk\\Client\\GameClient\\Bin\\App\\development\\androidcustom\\androidcustom-1.1.0.0.0-v1-IL2CPP.symbols.zip"
+        },
+        {
+          "key": "dstSymbolPath",
+          "value": "E:\\simpleperf\\simpleperf\\syms_2\\androidcustom.symbols.zip"
+        }
+      ],
+      "order": 0
+    },
+    {
+      "id": "bcc71812-d7eb-4b96-9d96-de3bb6b4b7b3",
+      "categoryId": "2080c0d3-8228-4b32-8404-b658b687e16b",
+      "name": "TBBuild3-AndroidNOSDK-new",
+      "description": "TBBuild3-AndroidNOSDK",
+      "template": "%unityPath% -quit -batchmode -projectPath %projectPath% -executeMethod %method% -logFile %logFilePath% & move \"%srcSymbolPath%\" \"%dstSymbolPath%\"",
+      "variables": [
+        {
+          "key": "unityPath",
+          "value": "D:\\CyouUnityRepo\\2D\\SourceCode\\build\\WindowsEditor\\x64\\Debug\\Unity.exe"
+        },
+        {
+          "key": "projectPath",
+          "value": "D:\\TB\\trunk3\\Client\\GameClient"
+        },
+        {
+          "key": "method",
+          "value": "BuildPipelineXEditor.BuildAppAndroid"
+        },
+        {
+          "key": "logFilePath",
+          "value": "D:\\TB\\trunk3\\Client\\GameClient\\mylog\\buildlog.txt"
+        },
+        {
+          "key": "srcSymbolPath",
+          "value": "D:\\TB\\trunk3\\Client\\GameClient\\Bin\\App\\development\\androidcustom\\androidcustom-1.1.0.0.0-v1-IL2CPP.symbols.zip"
+        },
+        {
+          "key": "dstSymbolPath",
+          "value": "E:\\simpleperf\\simpleperf\\syms_3new\\androidcustom.symbols.zip"
+        }
+      ],
+      "order": 1
+    },
+    {
+      "id": "ed2d900a-d709-44b4-94b0-601a84a07ae5",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-record-3new",
+      "description": "simpleperf record数据",
+      "template": "adb shell /data/local/tmp/simpleperf record -o /data/local/tmp/perf.data -g --app %packageName%  --duration %duration% -f %frequency% -m 2048 --no-cut-samples",
+      "variables": [
+        {
+          "key": "packageName",
+          "value": "com.cyou.pjtb3new"
+        },
+        {
+          "key": "duration",
+          "value": "60"
+        },
+        {
+          "key": "frequency",
+          "value": "2999"
+        }
+      ],
+      "order": 0
+    },
+    {
+      "id": "f2d48030-79a0-41ee-b619-088567ed407f",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-pull-perfdata3-new",
+      "description": "simpleperf pull data到本地",
+      "template": "adb pull /data/local/tmp/perf.data %pullToPath%",
+      "variables": [
+        {
+          "key": "pullToPath",
+          "value": "E:\\simpleperf\\simpleperf\\perf3new.data"
+        }
+      ],
+      "order": 1
+    },
+    {
+      "id": "d5d74b4d-1a51-4fc8-bddb-52d632a9a85f",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-copyso3-new",
+      "description": "",
+      "template": "7z e %symbolzipPath% %soPath% -o\"%soOutputPath%\" -y & copy %unityAndroidSoPath% %soOutputPath%",
+      "variables": [
+        {
+          "key": "symbolzipPath",
+          "value": "E:\\simpleperf\\simpleperf\\syms_3new\\androidcustom.symbols.zip"
+        },
+        {
+          "key": "soPath",
+          "value": "arm64-v8a\\*"
+        },
+        {
+          "key": "soOutputPath",
+          "value": "E:\\simpleperf\\simpleperf\\binary_cache3new"
+        },
+        {
+          "key": "unityAndroidSoPath",
+          "value": "D:\\CyouUnityRepo\\2D\\SourceCode\\build\\AndroidPlayer\\Variations\\il2cpp\\Development\\Libs\\arm64-v8a\\*"
+        }
+      ],
+      "order": 2
+    },
+    {
+      "id": "59f189e5-f4d5-4c0d-8572-dac7548a89b5",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-generate-gz3-new",
+      "description": "生成json.gz",
+      "template": "E: & cd %simpleperfPath% & python .\\gecko_profile_generator.py -i %perfdata% --symfs %symsdir% | gzip > %gzname%",
+      "variables": [
+        {
+          "key": "simpleperfPath",
+          "value": "E:\\simpleperf\\simpleperf"
+        },
+        {
+          "key": "perfdata",
+          "value": "E:\\simpleperf\\simpleperf\\perf3new.data"
+        },
+        {
+          "key": "symsdir",
+          "value": "E:\\simpleperf\\simpleperf\\binary_cache3new"
+        },
+        {
+          "key": "gzname",
+          "value": "profile_3new2.json.gz"
+        }
+      ],
+      "order": 3
+    },
+    {
+      "id": "ae3839ca-aa66-4ee1-90d3-918c4f7390b4",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-pull-perfdata3-old",
+      "description": "simpleperf pull data到本地",
+      "template": "adb pull /data/local/tmp/perf.data %pullToPath%",
+      "variables": [
+        {
+          "key": "pullToPath",
+          "value": "E:\\simpleperf\\simpleperf\\perf3old.data"
+        }
+      ],
+      "order": 6
+    },
+    {
+      "id": "03b38502-707e-4663-bde5-ea44e31c0937",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-copyso3-old",
+      "description": "",
+      "template": "7z e %symbolzipPath% %soPath% -o\"%soOutputPath%\" -y & copy %unityAndroidSoPath% %soOutputPath%",
+      "variables": [
+        {
+          "key": "symbolzipPath",
+          "value": "E:\\simpleperf\\simpleperf\\syms_3old\\androidcustom.symbols.zip"
+        },
+        {
+          "key": "soPath",
+          "value": "arm64-v8a\\*"
+        },
+        {
+          "key": "soOutputPath",
+          "value": "E:\\simpleperf\\simpleperf\\binary_cache3old"
+        },
+        {
+          "key": "unityAndroidSoPath",
+          "value": "D:\\CyouUnityRepo\\2D\\SourceCode\\build\\AndroidPlayer\\Variations_old\\il2cpp\\Development\\Libs\\arm64-v8a\\*"
+        }
+      ],
+      "order": 5
+    },
+    {
+      "id": "97df36db-533c-4ef8-a869-397100c2f6ce",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-generate-gz3-old",
+      "description": "生成json.gz",
+      "template": "E: & cd %simpleperfPath% & python .\\gecko_profile_generator.py -i %perfdata% --symfs %symsdir% | gzip > %gzname%",
+      "variables": [
+        {
+          "key": "simpleperfPath",
+          "value": "E:\\simpleperf\\simpleperf"
+        },
+        {
+          "key": "perfdata",
+          "value": "E:\\simpleperf\\simpleperf\\perf3old.data"
+        },
+        {
+          "key": "symsdir",
+          "value": "E:\\simpleperf\\simpleperf\\binary_cache3old"
+        },
+        {
+          "key": "gzname",
+          "value": "profile_3old2.json.gz"
+        }
+      ],
+      "order": 7
+    },
+    {
+      "id": "eec44dd6-ddae-4ebc-b3f4-6c6ff63bb351",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-pull-perfdata2",
+      "description": "simpleperf pull data到本地",
+      "template": "adb pull /data/local/tmp/perf.data %pullToPath%",
+      "variables": [
+        {
+          "key": "pullToPath",
+          "value": "E:\\simpleperf\\simpleperf\\perf2.data"
+        }
+      ],
+      "order": 8
+    },
+    {
+      "id": "242ebb54-01e6-46f3-9d67-cdf06b826221",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-copyso2",
+      "description": "",
+      "template": "7z e %symbolzipPath% %soPath% -o\"%soOutputPath%\" -y & copy %unityAndroidSoPath% %soOutputPath%",
+      "variables": [
+        {
+          "key": "symbolzipPath",
+          "value": "E:\\simpleperf\\simpleperf\\syms_2\\androidcustom.symbols.zip"
+        },
+        {
+          "key": "soPath",
+          "value": "arm64-v8a\\*"
+        },
+        {
+          "key": "soOutputPath",
+          "value": "E:\\simpleperf\\simpleperf\\binary_cache2"
+        },
+        {
+          "key": "unityAndroidSoPath",
+          "value": "D:\\UnityForHarmonyOHOS\\SourceCode\\build\\AndroidPlayer\\Variations\\il2cpp\\Development\\Libs\\arm64-v8a\\*"
+        }
+      ],
+      "order": 9
+    },
+    {
+      "id": "affa5d9f-52e5-470c-9b87-a4b7ea801f8c",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-generate-gz2",
+      "description": "生成json.gz",
+      "template": "E: & cd %simpleperfPath% & python .\\gecko_profile_generator.py -i %perfdata% --symfs %symsdir% | gzip > %gzname%",
+      "variables": [
+        {
+          "key": "simpleperfPath",
+          "value": "E:\\simpleperf\\simpleperf"
+        },
+        {
+          "key": "perfdata",
+          "value": "E:\\simpleperf\\simpleperf\\perf2.data"
+        },
+        {
+          "key": "symsdir",
+          "value": "E:\\simpleperf\\simpleperf\\binary_cache2"
+        },
+        {
+          "key": "gzname",
+          "value": "profile_2.json.gz"
+        }
+      ],
+      "order": 10
+    },
+    {
+      "id": "b8c614f9-bf80-47c1-a322-f06d26bfd75d",
+      "categoryId": "2080c0d3-8228-4b32-8404-b658b687e16b",
+      "name": "TBBuild3-AndroidNOSDK-old",
+      "description": "TBBuild3-AndroidNOSDK-old",
+      "template": "D: & cd %unityAndroidPlayerPath% & .\\swapVariation.bat & %unityPath% -quit -batchmode -projectPath %projectPath% -executeMethod %method% -logFile %logFilePath% & .\\swapVariation.bat & move \"%srcSymbolPath%\" \"%dstSymbolPath%\"",
+      "variables": [
+        {
+          "key": "unityAndroidPlayerPath",
+          "value": "D:\\CyouUnityRepo\\2D\\SourceCode\\build\\AndroidPlayer"
+        },
+        {
+          "key": "unityPath",
+          "value": "D:\\CyouUnityRepo\\2D\\SourceCode\\build\\WindowsEditor\\x64_old\\Debug\\Unity.exe"
+        },
+        {
+          "key": "projectPath",
+          "value": "D:\\TB\\trunk3\\Client\\GameClient"
+        },
+        {
+          "key": "method",
+          "value": "BuildPipelineXEditor.BuildAppAndroid"
+        },
+        {
+          "key": "logFilePath",
+          "value": "D:\\TB\\trunk3\\Client\\GameClient\\mylog\\buildlog_old.txt"
+        },
+        {
+          "key": "srcSymbolPath",
+          "value": "D:\\TB\\trunk3\\Client\\GameClient\\Bin\\App\\development\\androidcustom\\androidcustom-1.1.0.0.0-v1-IL2CPP.symbols.zip"
+        },
+        {
+          "key": "dstSymbolPath",
+          "value": "E:\\simpleperf\\simpleperf\\syms_3old\\androidcustom.symbols.zip"
+        }
+      ],
+      "order": 2
+    },
+    {
+      "id": "7fe8bbf2-4581-49ac-b0ec-7a511ecead1b",
+      "categoryId": "809ea9c7-6d74-4244-b78c-bbdc05c213f3",
+      "name": "test",
+      "description": "",
+      "template": "$UNITY3_ROOT$",
+      "variables": [],
+      "order": 0
+    },
+    {
+      "id": "a3bb1c6c-8cb3-4fd2-84a3-52c3b29fd789",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-record-2",
+      "description": "simpleperf record数据",
+      "template": "adb shell /data/local/tmp/simpleperf record -o /data/local/tmp/perf.data -g --app %packageName%  --duration %duration% -f %frequency% -m 2048 --no-cut-samples",
+      "variables": [
+        {
+          "key": "packageName",
+          "value": "com.cyou.pjtb.two"
+        },
+        {
+          "key": "duration",
+          "value": "60"
+        },
+        {
+          "key": "frequency",
+          "value": "2999"
+        }
+      ],
+      "order": 11
+    },
+    {
+      "id": "04bc06f9-ffc9-4ab7-9998-514485ed91a6",
+      "categoryId": "edee1d4c-2f4a-494e-b0e2-d47c9d7bb9b0",
+      "name": "simpleperf-record-3old",
+      "description": "simpleperf record数据",
+      "template": "adb shell /data/local/tmp/simpleperf record -o /data/local/tmp/perf.data -g --app %packageName%  --duration %duration% -f %frequency% -m 2048 --no-cut-samples",
+      "variables": [
+        {
+          "key": "packageName",
+          "value": "com.cyou.pjtb3old"
+        },
+        {
+          "key": "duration",
+          "value": "60"
+        },
+        {
+          "key": "frequency",
+          "value": "2999"
+        }
+      ],
+      "order": 4
+    }
+  ],
+  "globalVariables": [
+    {
+      "key": "UNITY3_ROOT",
+      "value": "D:\\CyouUnityRepo\\2D\\SourceCode\\build\\WindowsEditor\\x64\\Debug"
+    },
+    {
+      "key": "TEST",
+      "value": "1"
+    }
+  ]
+}
